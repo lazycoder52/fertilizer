@@ -70,6 +70,28 @@ def test_api_v1_predict_valid(client):
     assert "remark" in data
     assert len(data["top_3_recommendations"]) == 3
     assert data["top_3_recommendations"][0]["fertilizer"] == data["recommendation"]
+    assert "explanation" in data
+    assert data["explanation"]["enabled"] is True
+    assert len(data["explanation"]["top_contributions"]) > 0
+
+
+def test_api_v1_explain_valid(client):
+    """Verify /api/v1/explain returns detailed SHAP explanation payload."""
+    payload = {
+        "Soil": "Loamy Soil",
+        "Crop": "Wheat",
+        "Nitrogen": 40.0,
+        "Phosphorous": 25.0,
+        "Potassium": 15.0,
+    }
+    response = client.post("/api/v1/explain", json=payload)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["success"] is True
+    assert "explanation" in data
+    assert data["explanation"]["enabled"] is True
+    assert len(data["explanation"]["top_contributions"]) > 0
+    assert "positive_drivers" in data["explanation"]
 
 
 def test_api_v1_predict_pydantic_bounds_ph(client):

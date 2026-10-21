@@ -133,3 +133,59 @@ def metrics_v1():
     """
     service = ModelService()
     return jsonify(service.get_metrics()), 200
+
+
+@bp.route("/explain", methods=["POST"])
+@limiter.limit("60 per minute")
+def explain_v1():
+    """Detailed SHAP Feature Attribution Explanation Endpoint.
+    ---
+    tags:
+      - Explainability
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - Soil
+            - Crop
+          properties:
+            Soil:
+              type: string
+              example: Loamy Soil
+            Crop:
+              type: string
+              example: Wheat
+    responses:
+      200:
+        description: Detailed SHAP contribution weights and directionality
+      400:
+        description: Validation error
+    """
+    raw_json = request.get_json(silent=True)
+    if raw_json is None:
+        return jsonify({"error": "Request body must be valid JSON"}), 400
+
+    try:
+        validated_request = PredictRequest.model_validate(raw_json)
+    except ValidationError as err:
+        errors = [
+            {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
+            for e in err.errors()
+        ]
+        return jsonify({"error": "Validation error", "details": errors}), 400
+
+    service = ModelService()
+    try:
+        pred_result = service.predict(validated_request.model_dump())
+        return jsonify({
+            "success": True,
+            "recommendation": pred_result["recommendation"],
+            "explanation": pred_result.get("explanation", {}),
+            "remark": pred_result.get("remark", ""),
+        }), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
