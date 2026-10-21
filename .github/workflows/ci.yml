@@ -27,3 +27,7 @@ jobs:
       - name: Validate code compilation
         run: |
           python -m py_compile app.py train_model.py
+
+      - name: Run Test Suite
+        run: |
+          pytest -v
