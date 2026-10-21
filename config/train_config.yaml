@@ -1,0 +1,60 @@
+# Training and Evaluation Configuration
+seed: 42
+data_path: "fertilizer_recommendation_dataset.csv"
+output_dir: "model_files"
+
+cross_validation:
+  n_splits: 5
+  shuffle: true
+
+features:
+  numerical:
+    - Temperature
+    - Moisture
+    - Rainfall
+    - PH
+    - Nitrogen
+    - Phosphorous
+    - Potassium
+    - Carbon
+  categorical:
+    - Soil
+    - Crop
+  target: Fertilizer
+
+optuna:
+  n_trials: 30
+  timeout_seconds: 120
+
+ablation:
+  subsets:
+    soil_and_crop_only:
+      - Soil_encoded
+      - Crop_encoded
+    npk_only:
+      - Soil_encoded
+      - Crop_encoded
+      - Nitrogen
+      - Phosphorous
+      - Potassium
+    environmental_only:
+      - Soil_encoded
+      - Crop_encoded
+      - Temperature
+      - Moisture
+      - Rainfall
+      - PH
+    full_features:
+      - Temperature
+      - Moisture
+      - Rainfall
+      - PH
+      - Nitrogen
+      - Phosphorous
+      - Potassium
+      - Carbon
+      - Soil_encoded
+      - Crop_encoded
+
+noise_robustness:
+  noise_levels: [0.05, 0.10, 0.20]
