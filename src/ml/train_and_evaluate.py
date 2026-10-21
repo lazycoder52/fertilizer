@@ -6,12 +6,11 @@ performs ablation and noise robustness studies, and exports artifacts.
 
 import json
 import logging
-import os
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import joblib
 import numpy as np
@@ -24,12 +23,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
-    brier_score_loss,
     classification_report,
     confusion_matrix,
     f1_score,
-    precision_score,
-    recall_score,
     top_k_accuracy_score,
 )
 from sklearn.model_selection import StratifiedKFold, train_test_split
@@ -49,15 +45,21 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 def get_git_commit_hash() -> str:
     """Retrieve current Git commit hash."""
     try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode("ascii").strip()
+        commit = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode("ascii")
+            .strip()
+        )
         return commit
     except Exception:
         return "unknown"
 
 
-def multiclass_brier_score(y_true_indices: np.ndarray, y_proba: np.ndarray, num_classes: int) -> float:
+def multiclass_brier_score(
+    y_true_indices: np.ndarray, y_proba: np.ndarray, num_classes: int
+) -> float:
     """Calculate multi-class Brier score."""
     y_one_hot = np.zeros((len(y_true_indices), num_classes))
     y_one_hot[np.arange(len(y_true_indices)), y_true_indices] = 1.0
@@ -66,12 +68,12 @@ def multiclass_brier_score(y_true_indices: np.ndarray, y_proba: np.ndarray, num_
 
 def evaluate_cv(
     model: Any, X: pd.DataFrame, y: pd.Series, cv: StratifiedKFold, num_classes: int
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Run Stratified K-Fold CV and calculate aggregate metrics."""
-    top1_scores: List[float] = []
-    top3_scores: List[float] = []
-    macro_f1_scores: List[float] = []
-    brier_scores: List[float] = []
+    top1_scores: list[float] = []
+    top3_scores: list[float] = []
+    macro_f1_scores: list[float] = []
+    brier_scores: list[float] = []
 
     for train_idx, val_idx in cv.split(X, y):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
@@ -110,9 +112,9 @@ def evaluate_cv(
     }
 
 
-def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any]:
+def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any]:
     """Execute complete ML rigor, benchmarking, tuning, and evaluation pipeline."""
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     seed = cfg.get("seed", 42)
@@ -137,30 +139,41 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any
 
     num_classes = len(le_fertilizer.classes_)
     feature_cols = [
-        "Temperature", "Moisture", "Rainfall", "PH",
-        "Nitrogen", "Phosphorous", "Potassium", "Carbon",
-        "Soil_encoded", "Crop_encoded"
+        "Temperature",
+        "Moisture",
+        "Rainfall",
+        "PH",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium",
+        "Carbon",
+        "Soil_encoded",
+        "Crop_encoded",
     ]
 
     X = df[feature_cols]
     y = df["Fertilizer_encoded"]
 
-    cv = StratifiedKFold(n_splits=cfg["cross_validation"]["n_splits"], shuffle=True, random_state=seed)
+    cv = StratifiedKFold(
+        n_splits=cfg["cross_validation"]["n_splits"], shuffle=True, random_state=seed
+    )
 
     # 2. Multi-Model Baseline Comparison
     logger.info("Benchmarking model baselines using 5-fold Stratified CV...")
-    baselines: Dict[str, Any] = {
+    baselines: dict[str, Any] = {
         "Majority_Class_Baseline": DummyClassifier(strategy="most_frequent"),
-        "Logistic_Regression": Pipeline([
-            ("scaler", StandardScaler()),
-            ("clf", LogisticRegression(max_iter=1000, random_state=seed)),
-        ]),
+        "Logistic_Regression": Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("clf", LogisticRegression(max_iter=1000, random_state=seed)),
+            ]
+        ),
         "Decision_Tree": DecisionTreeClassifier(random_state=seed),
         "Random_Forest_Default": RandomForestClassifier(n_estimators=100, random_state=seed),
         "LightGBM_Default": LGBMClassifier(random_state=seed, verbosity=-1),
     }
 
-    baseline_metrics: Dict[str, Dict[str, float]] = {}
+    baseline_metrics: dict[str, dict[str, float]] = {}
     for name, model in baselines.items():
         start_time = time.time()
         metrics = evaluate_cv(model, X, y, cv, num_classes)
@@ -227,9 +240,15 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any
     conf_mat = confusion_matrix(y_test, y_pred).tolist()
 
     feature_importances = dict(
-        zip(feature_cols, [round(float(v), 5) for v in final_model.feature_importances_])
+        zip(
+            feature_cols,
+            [round(float(v), 5) for v in final_model.feature_importances_],
+            strict=False,
+        )
     )
-    sorted_importances = dict(sorted(feature_importances.items(), key=lambda item: item[1], reverse=True))
+    sorted_importances = dict(
+        sorted(feature_importances.items(), key=lambda item: item[1], reverse=True)
+    )
 
     # 5. Form-Friction Ablation Study
     logger.info("Executing form-friction ablation studies...")
@@ -268,7 +287,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any
         noisy_acc = float(accuracy_score(y_test, y_noisy_pred))
         noisy_f1 = float(f1_score(y_test, y_noisy_pred, average="macro", zero_division=0))
 
-        noise_results[f"noise_sigma_{int(noise_level*100)}pct"] = {
+        noise_results[f"noise_sigma_{int(noise_level * 100)}pct"] = {
             "noise_level": noise_level,
             "top1_accuracy": round(noisy_acc, 4),
             "macro_f1": round(noisy_f1, 4),
@@ -290,6 +309,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any
 
     # Backward compatibility with pickle for current app.py
     import pickle
+
     with open(output_dir / "model.pkl", "wb") as f:
         pickle.dump(final_model, f)
     with open(output_dir / "encoders.pkl", "wb") as f:
@@ -304,7 +324,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> Dict[str, Any
 
     # Comprehensive metrics JSON
     metrics_payload = {
-        "evaluation_timestamp": datetime.now(timezone.utc).isoformat(),
+        "evaluation_timestamp": datetime.now(UTC).isoformat(),
         "git_commit": get_git_commit_hash(),
         "model_architecture": "RandomForestClassifier (Optuna Tuned)",
         "best_hyperparameters": best_rf_params,
