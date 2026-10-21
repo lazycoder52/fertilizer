@@ -10,3 +10,7 @@ joblib
 pyyaml
 optuna
 lightgbm
+pydantic
+flasgger
+flask-limiter
+pytest
