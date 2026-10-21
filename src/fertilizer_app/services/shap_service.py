@@ -1,7 +1,8 @@
 """SHAP (SHapley Additive exPlanations) Explainability Service."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
+
 import numpy as np
 import pandas as pd
 import shap
@@ -16,17 +17,17 @@ class ShapService:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(ShapService, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, model: Any = None, feature_names: Optional[List[str]] = None):
+    def __init__(self, model: Any = None, feature_names: list[str] | None = None):
         if getattr(self, "_initialized", False):
             return
 
         self.model = model
         self.feature_names = feature_names or []
-        self.explainer: Optional[shap.TreeExplainer] = None
+        self.explainer: shap.TreeExplainer | None = None
 
         if self.model is not None:
             self._init_explainer()
@@ -47,8 +48,8 @@ class ShapService:
         self,
         input_df: pd.DataFrame,
         predicted_class_idx: int,
-        feature_display_names: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        feature_display_names: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Compute local feature attribution for the given input and predicted class."""
         if self.explainer is None:
             return {"enabled": False, "reason": "Explainer not initialized"}
@@ -75,26 +76,38 @@ class ShapService:
                 "PH": "Soil pH",
             }
 
-            contributions: List[Dict[str, Any]] = []
-            for feat_name, impact in zip(self.feature_names, class_shap):
+            contributions: list[dict[str, Any]] = []
+            for feat_name, impact in zip(self.feature_names, class_shap, strict=False):
                 raw_val = input_df[feat_name].iloc[0]
                 readable_name = display_names.get(feat_name, feat_name)
                 imp_val = round(float(impact), 4)
 
-                contributions.append({
-                    "feature": feat_name,
-                    "display_name": readable_name,
-                    "value": round(float(raw_val), 2) if isinstance(raw_val, (int, float)) else str(raw_val),
-                    "impact": imp_val,
-                    "direction": "positive" if imp_val >= 0 else "negative",
-                    "importance_abs": abs(imp_val),
-                })
+                contributions.append(
+                    {
+                        "feature": feat_name,
+                        "display_name": readable_name,
+                        "value": round(float(raw_val), 2)
+                        if isinstance(raw_val, (int, float))
+                        else str(raw_val),
+                        "impact": imp_val,
+                        "direction": "positive" if imp_val >= 0 else "negative",
+                        "importance_abs": abs(imp_val),
+                    }
+                )
 
             # Sort by absolute impact
             contributions.sort(key=lambda x: x["importance_abs"], reverse=True)
 
-            positive_drivers = [c for c in contributions if c["direction"] == "positive" and c["importance_abs"] > 0.001][:3]
-            negative_drivers = [c for c in contributions if c["direction"] == "negative" and c["importance_abs"] > 0.001][:3]
+            positive_drivers = [
+                c
+                for c in contributions
+                if c["direction"] == "positive" and c["importance_abs"] > 0.001
+            ][:3]
+            negative_drivers = [
+                c
+                for c in contributions
+                if c["direction"] == "negative" and c["importance_abs"] > 0.001
+            ][:3]
 
             return {
                 "enabled": True,

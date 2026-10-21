@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import uuid
+
 from flask import Flask, g, request
 
 
@@ -33,7 +34,7 @@ def init_logging(app: Flask) -> None:
     """Initialize structured logging and request telemetry hooks on the Flask app."""
     handler = logging.StreamHandler()
     handler.setFormatter(JSONFormatter())
-    
+
     # Configure root and app logger
     app.logger.handlers = [handler]
     app.logger.setLevel(logging.INFO)

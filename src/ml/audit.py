@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") -> Dict[str, Any]:
+def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") -> dict[str, Any]:
     """Audit dataset for duplicates, collisions, synthetic artifacts, and class balance."""
     path = Path(data_path)
     if not path.exists():
@@ -61,7 +61,7 @@ def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") 
     remark_map = {}
     if "Remark" in df.columns:
         remark_df = df[["Fertilizer", "Remark"]].drop_duplicates()
-        remark_map = dict(zip(remark_df["Fertilizer"], remark_df["Remark"]))
+        remark_map = dict(zip(remark_df["Fertilizer"], remark_df["Remark"], strict=False))
 
     audit_results = {
         "dataset_path": str(path),
@@ -73,8 +73,7 @@ def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") 
         "feature_collisions": feature_duplicates,
         "missing_values": missing_counts,
         "class_distribution": {
-            k: {"count": class_counts[k], "percentage": class_proportions[k]}
-            for k in class_counts
+            k: {"count": class_counts[k], "percentage": class_proportions[k]} for k in class_counts
         },
         "numerical_summary": numerical_summary,
         "negative_value_anomalies": negative_values,
@@ -84,9 +83,9 @@ def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") 
             "reasons": [
                 f"Negative sensor values detected in physical metrics: {list(negative_values.keys())}",
                 "Sharp deterministic decision tree boundaries at round numbers (50 N, 50 P, 50 K, 6.0 pH)",
-                "Remark column shows 1-to-1 deterministic correspondence with fertilizer classes"
-            ]
-        }
+                "Remark column shows 1-to-1 deterministic correspondence with fertilizer classes",
+            ],
+        },
     }
 
     logger.info("Dataset audit completed successfully: %d rows analyzed", total_samples)

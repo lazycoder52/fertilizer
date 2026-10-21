@@ -1,18 +1,18 @@
-import sys
-import os
 import argparse
+import os
+import sys
 from pathlib import Path
 
 # Load environment variables (check workspace .env first, then ~/.gemini/.env)
 env_paths = [
     Path(__file__).resolve().parents[4] / ".env",  # Workspace root
     Path.cwd() / ".env",
-    Path.home() / ".gemini" / ".env"
+    Path.home() / ".gemini" / ".env",
 ]
 
 for env_path in env_paths:
     if env_path.exists():
-        with open(env_path, "r", encoding="utf-8") as f:
+        with open(env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -43,9 +43,7 @@ config = types.GenerateContentConfig(
 )
 
 response = client.models.generate_content(
-    model="gemini-4-argon",
-    contents=args.prompt,
-    config=config
+    model="gemini-4-argon", contents=args.prompt, config=config
 )
 
 # Print model output
@@ -63,9 +61,9 @@ if cached_input > 0 and uncached_input >= cached_input:
 output_tokens = getattr(usage, "candidates_token_count", 0) or 0
 
 cost = (
-    (uncached_input * (2.00 / 1_000_000)) +
-    (cached_input * (0.10 / 1_000_000)) +
-    (output_tokens * (10.00 / 1_000_000))
+    (uncached_input * (2.00 / 1_000_000))
+    + (cached_input * (0.10 / 1_000_000))
+    + (output_tokens * (10.00 / 1_000_000))
 )
 
 print("\n" + "=" * 60)
