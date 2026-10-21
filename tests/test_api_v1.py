@@ -1,6 +1,7 @@
 """Integration and Unit Tests for Fertilizer Recommendation Backend."""
 
 import pytest
+
 from src.fertilizer_app import create_app
 
 

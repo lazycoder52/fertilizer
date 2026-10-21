@@ -5,6 +5,7 @@ For production deployments, Gunicorn binds to `app:app`.
 """
 
 import os
+
 from src.fertilizer_app import create_app
 
 app = create_app()

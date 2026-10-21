@@ -1,6 +1,7 @@
 """Version 1 API Routes Blueprint."""
 
 import logging
+
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
@@ -76,10 +77,7 @@ def predict_v1():
     try:
         validated_request = PredictRequest.model_validate(raw_json)
     except ValidationError as err:
-        errors = [
-            {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
-            for e in err.errors()
-        ]
+        errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in err.errors()]
         return jsonify({"error": "Validation error", "details": errors}), 400
 
     # 2. Model inference via Singleton service
@@ -171,21 +169,19 @@ def explain_v1():
     try:
         validated_request = PredictRequest.model_validate(raw_json)
     except ValidationError as err:
-        errors = [
-            {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
-            for e in err.errors()
-        ]
+        errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in err.errors()]
         return jsonify({"error": "Validation error", "details": errors}), 400
 
     service = ModelService()
     try:
         pred_result = service.predict(validated_request.model_dump())
-        return jsonify({
-            "success": True,
-            "recommendation": pred_result["recommendation"],
-            "explanation": pred_result.get("explanation", {}),
-            "remark": pred_result.get("remark", ""),
-        }), 200
+        return jsonify(
+            {
+                "success": True,
+                "recommendation": pred_result["recommendation"],
+                "explanation": pred_result.get("explanation", {}),
+                "remark": pred_result.get("remark", ""),
+            }
+        ), 200
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
-

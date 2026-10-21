@@ -14,4 +14,7 @@ pydantic
 flasgger
 flask-limiter
 pytest
+pytest-cov
 shap
+ruff
+pip-audit
