@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+myenv/
+venv/
+env/
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# Testing and Coverage
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Scratch & Brain artifacts
+scratch/
+.agents/
+
+# IDE files
+.vscode/
+.idea/
