@@ -6,3 +6,7 @@ gunicorn
 Werkzeug
 matplotlib
 seaborn
+joblib
+pyyaml
+optuna
+lightgbm

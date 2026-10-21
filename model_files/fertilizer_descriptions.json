@@ -1,0 +1,12 @@
+{
+  "Compost": "Enhances organic matter and improves soil structure. Prefer this for low-carbon soils to boost soil health naturally.",
+  "Balanced NPK Fertilizer": "Provides a balanced mix of nitrogen, phosphorus, and potassium for loamy soils. Prefer this for general-purpose fertilization in well-structured soils.",
+  "Water Retaining Fertilizer": "Improves water retention in dry soils. Prefer this for soils with low moisture to prevent water stress in plants.",
+  "Organic Fertilizer": "Enhances fertility naturally, ideal for peaty soils. Prefer this to improve soil fertility while maintaining organic farming practices.",
+  "Gypsum": "Corrects alkaline soil, adds calcium and sulfur. Prefer this to lower soil pH and enhance soil structure.",
+  "Lime": "Neutralizes acidic soil and improves pH balance. Prefer this to correct low soil pH, improving nutrient availability.",
+  "DAP": "Rich in phosphorus, essential for root development. Prefer this for phosphorus-deficient soils to improve plant establishment.",
+  "Urea": "Provides high nitrogen, ideal for rapid leafy growth. Prefer this for nitrogen-deficient soils as it supports vegetative growth.",
+  "Muriate of Potash": "High potassium content, improves fruit and flower quality. Prefer this for potassium-deficient soils to enhance crop productivity.",
+  "General Purpose Fertilizer": "Suitable for general use across various soil and crop types. Prefer this when no specific deficiency is detected."
+}

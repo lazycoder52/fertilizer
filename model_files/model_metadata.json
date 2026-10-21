@@ -1,0 +1,50 @@
+{
+  "model_version": "1.0.0",
+  "git_commit": "3c6e5e3",
+  "algorithm": "RandomForestClassifier",
+  "top1_accuracy": 0.9952,
+  "top3_accuracy": 1.0,
+  "macro_f1": 0.9851,
+  "brier_score": 0.0298,
+  "input_features": [
+    "Temperature",
+    "Moisture",
+    "Rainfall",
+    "PH",
+    "Nitrogen",
+    "Phosphorous",
+    "Potassium",
+    "Carbon",
+    "Soil_encoded",
+    "Crop_encoded"
+  ],
+  "target_classes": [
+    "Balanced NPK Fertilizer",
+    "Compost",
+    "DAP",
+    "General Purpose Fertilizer",
+    "Gypsum",
+    "Lime",
+    "Muriate of Potash",
+    "Organic Fertilizer",
+    "Urea",
+    "Water Retaining Fertilizer"
+  ],
+  "serialization": "joblib",
+  "data_card_notes": {
+    "synthetic_labels_detected": true,
+    "audit_summary": {
+      "is_likely_synthetic": true,
+      "reasons": [
+        "Negative sensor values detected in physical metrics: ['Rainfall', 'Phosphorous', 'Potassium', 'Carbon']",
+        "Sharp deterministic decision tree boundaries at round numbers (50 N, 50 P, 50 K, 6.0 pH)",
+        "Remark column shows 1-to-1 deterministic correspondence with fertilizer classes"
+      ]
+    },
+    "real_world_limitations": [
+      "Does not calculate dosage (kg/ha or lbs/acre)",
+      "Does not compute application schedule or growth stage timing",
+      "Dataset contains synthetic artifact values in rainfall and nutrients"
+    ]
+  }
+}
