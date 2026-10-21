@@ -1,0 +1,368 @@
+{
+  "evaluation_timestamp": "2026-10-21T17:42:09.308988+00:00",
+  "git_commit": "3c6e5e3",
+  "model_architecture": "RandomForestClassifier (Optuna Tuned)",
+  "best_hyperparameters": {
+    "n_estimators": 125,
+    "max_depth": 16,
+    "min_samples_split": 7,
+    "min_samples_leaf": 1
+  },
+  "holdout_evaluation": {
+    "test_size": 0.2,
+    "top1_accuracy": 0.9952,
+    "top3_accuracy": 1.0,
+    "macro_f1": 0.9851,
+    "brier_score": 0.0298
+  },
+  "baseline_comparison": {
+    "Majority_Class_Baseline": {
+      "top1_accuracy_mean": 0.33999999999999997,
+      "top1_accuracy_std": 0.0006451612903225934,
+      "top3_accuracy_mean": 0.6074193548387097,
+      "top3_accuracy_std": 0.0007901579815429491,
+      "macro_f1_mean": 0.050746234033607354,
+      "macro_f1_std": 7.191219752657185e-05,
+      "brier_score_mean": 1.3199999999999998,
+      "training_time_seconds": 0.023
+    },
+    "Logistic_Regression": {
+      "top1_accuracy_mean": 0.804516129032258,
+      "top1_accuracy_std": 0.0073134090637126635,
+      "top3_accuracy_mean": 0.9803225806451612,
+      "top3_accuracy_std": 0.0034442187909778377,
+      "macro_f1_mean": 0.6902681150034496,
+      "macro_f1_std": 0.019454234876209033,
+      "brier_score_mean": 0.2928566402164581,
+      "training_time_seconds": 0.179
+    },
+    "Decision_Tree": {
+      "top1_accuracy_mean": 0.9938709677419354,
+      "top1_accuracy_std": 0.001206986253798028,
+      "top3_accuracy_mean": 0.9961290322580645,
+      "top3_accuracy_std": 0.0016448450043847931,
+      "macro_f1_mean": 0.9763016335160181,
+      "macro_f1_std": 0.007622978803128178,
+      "brier_score_mean": 0.012258064516129033,
+      "training_time_seconds": 0.098
+    },
+    "Random_Forest_Default": {
+      "top1_accuracy_mean": 0.9935483870967742,
+      "top1_accuracy_std": 0.003225806451612889,
+      "top3_accuracy_mean": 1.0,
+      "top3_accuracy_std": 0.0,
+      "macro_f1_mean": 0.9795441117018255,
+      "macro_f1_std": 0.011616790429334976,
+      "brier_score_mean": 0.025790967741935483,
+      "training_time_seconds": 2.043
+    },
+    "LightGBM_Default": {
+      "top1_accuracy_mean": 0.9916129032258064,
+      "top1_accuracy_std": 0.0032896900087695208,
+      "top3_accuracy_mean": 0.9996774193548387,
+      "top3_accuracy_std": 0.0006451612903225712,
+      "macro_f1_mean": 0.9862347034762671,
+      "macro_f1_std": 0.008651224505845212,
+      "brier_score_mean": 0.01546970826393057,
+      "training_time_seconds": 3.601
+    }
+  },
+  "ablation_study": {
+    "soil_and_crop_only": {
+      "features_used": [
+        "Soil_encoded",
+        "Crop_encoded"
+      ],
+      "feature_count": 2,
+      "top1_accuracy": 0.5065,
+      "top3_accuracy": 0.82,
+      "macro_f1": 0.2727
+    },
+    "npk_only": {
+      "features_used": [
+        "Soil_encoded",
+        "Crop_encoded",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium"
+      ],
+      "feature_count": 5,
+      "top1_accuracy": 0.7435,
+      "top3_accuracy": 0.9523,
+      "macro_f1": 0.5523
+    },
+    "environmental_only": {
+      "features_used": [
+        "Soil_encoded",
+        "Crop_encoded",
+        "Temperature",
+        "Moisture",
+        "Rainfall",
+        "PH"
+      ],
+      "feature_count": 6,
+      "top1_accuracy": 0.5781,
+      "top3_accuracy": 0.9139,
+      "macro_f1": 0.4825
+    },
+    "full_features": {
+      "features_used": [
+        "Temperature",
+        "Moisture",
+        "Rainfall",
+        "PH",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium",
+        "Carbon",
+        "Soil_encoded",
+        "Crop_encoded"
+      ],
+      "feature_count": 10,
+      "top1_accuracy": 0.9935,
+      "top3_accuracy": 1.0,
+      "macro_f1": 0.9795
+    }
+  },
+  "noise_robustness": {
+    "noise_sigma_5pct": {
+      "noise_level": 0.05,
+      "top1_accuracy": 0.9097,
+      "macro_f1": 0.8771,
+      "relative_degradation_pct": 8.59
+    },
+    "noise_sigma_10pct": {
+      "noise_level": 0.1,
+      "top1_accuracy": 0.8548,
+      "macro_f1": 0.8327,
+      "relative_degradation_pct": 14.1
+    },
+    "noise_sigma_20pct": {
+      "noise_level": 0.2,
+      "top1_accuracy": 0.7306,
+      "macro_f1": 0.6592,
+      "relative_degradation_pct": 26.58
+    }
+  },
+  "feature_importance": {
+    "Phosphorous": 0.32139,
+    "Carbon": 0.14395,
+    "PH": 0.13913,
+    "Potassium": 0.1333,
+    "Moisture": 0.09222,
+    "Nitrogen": 0.08963,
+    "Soil_encoded": 0.04352,
+    "Rainfall": 0.01427,
+    "Crop_encoded": 0.01171,
+    "Temperature": 0.01089
+  },
+  "classification_report": {
+    "Balanced NPK Fertilizer": {
+      "precision": 0.96875,
+      "recall": 1.0,
+      "f1-score": 0.9841269841269841,
+      "support": 31.0
+    },
+    "Compost": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 75.0
+    },
+    "DAP": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 211.0
+    },
+    "General Purpose Fertilizer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Gypsum": {
+      "precision": 1.0,
+      "recall": 0.8181818181818182,
+      "f1-score": 0.9,
+      "support": 11.0
+    },
+    "Lime": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "Muriate of Potash": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 65.0
+    },
+    "Organic Fertilizer": {
+      "precision": 0.95,
+      "recall": 1.0,
+      "f1-score": 0.9743589743589743,
+      "support": 19.0
+    },
+    "Urea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 31.0
+    },
+    "Water Retaining Fertilizer": {
+      "precision": 0.9925925925925926,
+      "recall": 0.9925925925925926,
+      "f1-score": 0.9925925925925926,
+      "support": 135.0
+    },
+    "accuracy": 0.9951612903225806,
+    "macro avg": {
+      "precision": 0.9911342592592591,
+      "recall": 0.981077441077441,
+      "f1-score": 0.9851078551078551,
+      "support": 620.0
+    },
+    "weighted avg": {
+      "precision": 0.9952923387096774,
+      "recall": 0.9951612903225806,
+      "f1-score": 0.9950334790657371,
+      "support": 620.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      31,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      75,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      211,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      6,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      9,
+      0,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      36,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      65,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      19,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      31,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      134
+    ]
+  ],
+  "classes": [
+    "Balanced NPK Fertilizer",
+    "Compost",
+    "DAP",
+    "General Purpose Fertilizer",
+    "Gypsum",
+    "Lime",
+    "Muriate of Potash",
+    "Organic Fertilizer",
+    "Urea",
+    "Water Retaining Fertilizer"
+  ]
+}
