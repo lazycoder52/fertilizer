@@ -14,3 +14,4 @@ pydantic
 flasgger
 flask-limiter
 pytest
+shap

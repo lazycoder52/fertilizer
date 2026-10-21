@@ -9,6 +9,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from src.fertilizer_app.services.shap_service import ShapService
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,6 +86,9 @@ class ModelService:
         if meta_path.exists():
             with open(meta_path, "r", encoding="utf-8") as f:
                 self.model_metadata = json.load(f)
+
+        # 4. Initialize Explainability
+        self.shap_service = ShapService(model=self.model, feature_names=self.required_features)
 
         logger.info(
             "✓ Model loaded successfully. Supported soils: %d, crops: %d, fertilizers: %d",
@@ -173,12 +178,16 @@ class ModelService:
                 self.metrics_counters["classes_predicted"].get(recommendation, 0) + 1
             )
 
+            # SHAP Explanation
+            explanation = self.shap_service.explain(input_df, prediction_encoded)
+
             return {
                 "success": True,
                 "recommendation": recommendation,
                 "confidence": round(confidence, 2),
                 "remark": self.fertilizer_descriptions.get(recommendation, ""),
                 "top_3_recommendations": top_recommendations,
+                "explanation": explanation,
                 "input_received": input_data,
             }
 
