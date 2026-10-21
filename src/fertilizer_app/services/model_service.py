@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import joblib
 import numpy as np
@@ -21,20 +21,20 @@ class ModelService:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(ModelService, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, model_dir: Optional[Path] = None):
+    def __init__(self, model_dir: Path | None = None):
         if getattr(self, "_initialized", False):
             return
 
         self.model_dir = Path(model_dir or "model_files")
         self.model: Any = None
-        self.encoders: Dict[str, Any] = {}
-        self.required_features: List[str] = []
-        self.fertilizer_descriptions: Dict[str, str] = {}
-        self.model_metadata: Dict[str, Any] = {}
+        self.encoders: dict[str, Any] = {}
+        self.required_features: list[str] = []
+        self.fertilizer_descriptions: dict[str, str] = {}
+        self.model_metadata: dict[str, Any] = {}
 
         # Internal performance counters for /metrics
         self.metrics_counters = {
@@ -58,6 +58,7 @@ class ModelService:
             self.required_features = joblib.load(self.model_dir / "features.joblib")
         elif (self.model_dir / "model.pkl").exists():
             import pickle
+
             with open(self.model_dir / "model.pkl", "rb") as f:
                 self.model = pickle.load(f)
             with open(self.model_dir / "encoders.pkl", "rb") as f:
@@ -78,13 +79,13 @@ class ModelService:
         # 2. Descriptions / Remarks
         desc_path = self.model_dir / "fertilizer_descriptions.json"
         if desc_path.exists():
-            with open(desc_path, "r", encoding="utf-8") as f:
+            with open(desc_path, encoding="utf-8") as f:
                 self.fertilizer_descriptions = json.load(f)
 
         # 3. Model Metadata
         meta_path = self.model_dir / "model_metadata.json"
         if meta_path.exists():
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 self.model_metadata = json.load(f)
 
         # 4. Initialize Explainability
@@ -98,8 +99,8 @@ class ModelService:
         )
 
     def normalize_category(
-        self, value: Optional[str], valid_classes: List[str], suffix_to_strip: str = ""
-    ) -> Optional[str]:
+        self, value: str | None, valid_classes: list[str], suffix_to_strip: str = ""
+    ) -> str | None:
         """Normalize user input to match canonical classes case-insensitively."""
         if not value:
             return None
@@ -108,11 +109,14 @@ class ModelService:
             vc_clean = vc.lower()
             if val_clean == vc_clean:
                 return vc
-            if suffix_to_strip and val_clean == vc_clean.replace(suffix_to_strip.lower(), "").strip():
+            if (
+                suffix_to_strip
+                and val_clean == vc_clean.replace(suffix_to_strip.lower(), "").strip()
+            ):
                 return vc
         return None
 
-    def predict(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute model prediction and return ranked recommendations."""
         self.metrics_counters["total_requests"] += 1
 
@@ -121,8 +125,14 @@ class ModelService:
 
             # Numerical features (defaults to 0.0 if omitted)
             numerical_features = [
-                "Temperature", "Moisture", "Rainfall", "PH",
-                "Nitrogen", "Phosphorous", "Potassium", "Carbon"
+                "Temperature",
+                "Moisture",
+                "Rainfall",
+                "PH",
+                "Nitrogen",
+                "Phosphorous",
+                "Potassium",
+                "Carbon",
             ]
 
             for feat in numerical_features:
@@ -131,11 +141,15 @@ class ModelService:
 
             # Categorical: Soil
             soil_raw = input_data.get("Soil")
-            matched_soil = self.normalize_category(soil_raw, self.soil_types, suffix_to_strip="Soil")
+            matched_soil = self.normalize_category(
+                soil_raw, self.soil_types, suffix_to_strip="Soil"
+            )
             if matched_soil:
                 input_features["Soil_encoded"] = self.le_soil.transform([matched_soil])[0]
             elif soil_raw:
-                raise ValueError(f"Invalid soil type '{soil_raw}'. Valid options: {self.soil_types}")
+                raise ValueError(
+                    f"Invalid soil type '{soil_raw}'. Valid options: {self.soil_types}"
+                )
             else:
                 input_features["Soil_encoded"] = 0
 
@@ -145,7 +159,9 @@ class ModelService:
             if matched_crop:
                 input_features["Crop_encoded"] = self.le_crop.transform([matched_crop])[0]
             elif crop_raw:
-                raise ValueError(f"Invalid crop type '{crop_raw}'. Valid options: {self.crop_types}")
+                raise ValueError(
+                    f"Invalid crop type '{crop_raw}'. Valid options: {self.crop_types}"
+                )
             else:
                 input_features["Crop_encoded"] = 0
 
@@ -195,7 +211,7 @@ class ModelService:
             self.metrics_counters["prediction_errors"] += 1
             raise e
 
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """Return model metadata, feature requirements, and categories."""
         return {
             "soil_types": self.soil_types,
@@ -203,14 +219,20 @@ class ModelService:
             "fertilizer_classes": self.fertilizer_classes,
             "required_features": self.required_features,
             "optional_features": [
-                "Temperature", "Moisture", "Rainfall", "PH",
-                "Nitrogen", "Phosphorous", "Potassium", "Carbon"
+                "Temperature",
+                "Moisture",
+                "Rainfall",
+                "PH",
+                "Nitrogen",
+                "Phosphorous",
+                "Potassium",
+                "Carbon",
             ],
             "required_categorical": ["Soil", "Crop"],
             "model_metadata": self.model_metadata,
         }
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Return live operational telemetry."""
         return {
             "status": "healthy",

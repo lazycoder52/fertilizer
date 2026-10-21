@@ -1,8 +1,7 @@
 """Fertilizer Recommendation Application Factory."""
 
-import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flasgger import Swagger
 from flask import Flask
@@ -15,7 +14,7 @@ from src.fertilizer_app.core.logging import init_logging
 from src.fertilizer_app.services.model_service import ModelService
 
 
-def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
+def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     """Create, configure, and return the Flask application instance."""
     base_dir = Path(__file__).resolve().parents[2]
     template_dir = base_dir / "templates"

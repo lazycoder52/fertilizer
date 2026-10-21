@@ -7,7 +7,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test:
+  quality-gate:
+    name: Code Quality, Security & Model Gate
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,10 +25,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate code compilation
+      - name: Code Quality & Linting (Ruff Check)
         run: |
-          python -m py_compile app.py train_model.py
+          ruff check .
 
-      - name: Run Test Suite
+      - name: Code Formatting Check (Ruff Format)
         run: |
-          pytest -v
+          ruff format --check .
+
+      - name: Dependency Security Audit (pip-audit)
+        run: |
+          pip-audit -r requirements.txt
+
+      - name: Run Pytest Suite with Model Quality Gate & Coverage >= 80%
+        run: |
+          pytest -v --cov=src/fertilizer_app --cov-report=term-missing --cov-fail-under=80
