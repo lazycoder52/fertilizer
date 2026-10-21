@@ -18,3 +18,4 @@ pytest-cov
 shap
 ruff
 pip-audit
+locust
