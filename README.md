@@ -261,6 +261,77 @@ python app.py
 
 ---
 
+## API Reference & Usage
+
+Interactive OpenAPI / Swagger documentation is available locally at `http://localhost:5000/apidocs/`.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/predict` | Computes top fertilizer recommendation, top-3 ranked alternatives, and local TreeSHAP explanations. |
+| `POST` | `/api/v1/explain` | Computes local TreeSHAP attribution feature contributions for any arbitrary input vector. |
+| `GET` | `/api/v1/health` | Container liveness and readiness probe returning `{"status": "healthy"}`. |
+| `GET` | `/api/v1/info` | Returns supported soil/crop categories, feature medians, and model evaluation metrics derived from `metrics.json`. |
+| `GET` | `/api/v1/metrics` | Operational runtime telemetry including prediction counters and error counts. |
+
+### Example Request (`POST /api/v1/predict`)
+
+```json
+{
+  "Soil": "Loamy Soil",
+  "Crop": "Wheat",
+  "Nitrogen": 40.0,
+  "Phosphorous": 25.0,
+  "Potassium": 15.0,
+  "PH": 6.5,
+  "Moisture": 0.60,
+  "Temperature": 24.0,
+  "Rainfall": 120.0,
+  "Carbon": 1.2
+}
+```
+
+### Example Response (`200 OK`)
+
+```json
+{
+  "success": true,
+  "recommendation": "DAP",
+  "confidence": 98.42,
+  "remark": "High phosphorus content helps root development. Ideal for early growth stages.",
+  "top_3_recommendations": [
+    {"fertilizer": "DAP", "confidence": 98.42, "remark": "High phosphorus content helps root development."},
+    {"fertilizer": "Balanced NPK Fertilizer", "confidence": 1.15, "remark": "Balanced NPK formulation."},
+    {"fertilizer": "Urea", "confidence": 0.32, "remark": "High nitrogen source."}
+  ],
+  "is_imputed": false,
+  "imputed_fields": [],
+  "warning": null,
+  "explanation": {
+    "enabled": true,
+    "top_contributions": [
+      {"feature": "Phosphorous", "display_name": "Phosphorous", "value": 25.0, "impact": 0.4521, "direction": "positive"}
+    ],
+    "positive_drivers": ["Phosphorous"],
+    "negative_drivers": []
+  },
+  "input_received": {
+    "Soil": "Loamy Soil",
+    "Crop": "Wheat",
+    "Moisture": 0.6
+  }
+}
+```
+
+### User Interface & Input Dynamics
+
+- **Missing Input Warning**: When farmers omit continuous soil test inputs (e.g., submitting only Soil and Crop), the backend median-imputes the missing fields, and both the JSON API response (`warning` field) and the web UI display a visible amber alert banner: *"Low confidence: using default values for missing soil test parameters"*.
+- **Moisture Conversion**: The Pydantic request schema accepts moisture as both decimal fractions (`0.0 - 1.0`, e.g., `0.60`) and percentages (`1.01% - 100%`, e.g., `60.0%`), automatically normalizing percentages to decimals prior to inference.
+- **TreeSHAP Attributions**: Feature attributions are rendered dynamically on the web interface as horizontal impact bars, highlighting positive drivers in emerald green and negative inhibitors in crimson red.
+
+---
+
 ## Repository Structure
 
 ```
