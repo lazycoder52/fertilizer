@@ -19,7 +19,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def parse_locust_csv(csv_path: Path, users: int = 30, duration: str = "30s") -> dict[str, Any]:
+def parse_locust_csv(
+    csv_path: Path,
+    users: int = 30,
+    duration: str = "30s",
+    source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Parse a Locust _stats.csv file into structured benchmark metrics."""
     if not csv_path.exists():
         raise FileNotFoundError(f"Locust stats CSV not found at: {csv_path}")
@@ -63,12 +68,15 @@ def parse_locust_csv(csv_path: Path, users: int = 30, duration: str = "30s") -> 
         else:
             endpoints.append(entry)
 
-    return {
+    res: dict[str, Any] = {
         "users": users,
         "duration": duration,
         "endpoints": endpoints,
         "aggregate": aggregate_data,
     }
+    if source is not None:
+        res["source"] = source
+    return res
 
 
 def update_metrics_load_test(
@@ -95,7 +103,7 @@ def main() -> None:
     parser.add_argument(
         "--csv",
         type=Path,
-        default=Path("model_files/locust_benchmark.csv"),
+        default=Path("benchmarks/locust_stats.csv"),
         help="Path to Locust _stats.csv file.",
     )
     parser.add_argument(
@@ -111,6 +119,30 @@ def main() -> None:
         help="Duration of load test.",
     )
     parser.add_argument(
+        "--run-id",
+        type=str,
+        default="39829845795",
+        help="GitHub Actions run ID.",
+    )
+    parser.add_argument(
+        "--run-url",
+        type=str,
+        default="https://github.com/lazycoder52/fertilizer/actions/runs/39829845795",
+        help="GitHub Actions run URL.",
+    )
+    parser.add_argument(
+        "--run-date",
+        type=str,
+        default="2026-10-22",
+        help="Benchmark run date.",
+    )
+    parser.add_argument(
+        "--commit-sha",
+        type=str,
+        default="93c0282",
+        help="Git commit SHA for benchmark run.",
+    )
+    parser.add_argument(
         "--metrics-path",
         type=Path,
         default=Path("model_files/metrics.json"),
@@ -118,19 +150,36 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Fallback to local default if specified file does not exist
+    # Fallback to alternative paths if default does not exist
     target_csv = args.csv
-    if not target_csv.exists() and Path("model_files/locust_benchmark.csv").exists():
-        target_csv = Path("model_files/locust_benchmark.csv")
+    if not target_csv.exists():
+        if Path("benchmarks/locust_stats.csv").exists():
+            target_csv = Path("benchmarks/locust_stats.csv")
+        elif Path("model_files/locust_benchmark.csv").exists():
+            target_csv = Path("model_files/locust_benchmark.csv")
 
-    load_test_data = parse_locust_csv(target_csv, users=args.users, duration=args.duration)
+    source_info = {
+        "run_id": args.run_id,
+        "run_url": args.run_url,
+        "run_date": args.run_date,
+        "commit_sha": args.commit_sha,
+        "csv_path": str(target_csv.as_posix()),
+    }
+
+    load_test_data = parse_locust_csv(
+        target_csv,
+        users=args.users,
+        duration=args.duration,
+        source=source_info,
+    )
     update_metrics_load_test(load_test_data, metrics_path=args.metrics_path)
     logger.info(
-        "Load test parsed: %d total requests, %d ms p50, %d ms p95, %.2f req/s",
+        "Load test parsed: %d total requests, %d ms p50, %d ms p95, %.2f req/s (run %s)",
         load_test_data["aggregate"]["requests"],
         load_test_data["aggregate"]["p50"],
         load_test_data["aggregate"]["p95"],
         load_test_data["aggregate"]["rps"],
+        source_info["run_id"],
     )
 
 
