@@ -173,7 +173,7 @@ def create_mask_augmented_data(
     """Augment training data with masked feature samples.
 
     Enables the tree ensemble to learn appropriate uncertainty when farmers
-    omit optional soil test parameters, producing well-calibrated probabilities.
+    omit optional soil test parameters, producing reliable probability estimates.
     """
     rng = np.random.default_rng(seed)
     augmented_X = [X_train.copy()]
@@ -566,7 +566,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
             "status": "PASSED (Zero Leakage)",
         },
         "holdout_evaluation": {
-            "test_size": 0.2,
+            "test_size": round(len(X_test) / len(df), 2),
             "test_sample_count": len(X_test),
             "top1_accuracy": round(holdout_top1, 4),
             "top3_accuracy": round(holdout_top3, 4),
@@ -586,8 +586,22 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
         "classes": class_names,
     }
 
-    with open(output_dir / "metrics.json", "w", encoding="utf-8") as f:
-        json.dump(metrics_payload, f, indent=2)
+    # Non-destructively merge with existing metrics.json to preserve keys from
+    # robustness_eval, ablation, and load_test benchmarks
+    metrics_path = output_dir / "metrics.json"
+    existing_metrics: dict[str, Any] = {}
+    if metrics_path.exists():
+        try:
+            with open(metrics_path, encoding="utf-8") as f:
+                existing_metrics = json.load(f)
+        except Exception as exc:
+            logger.warning("Could not read existing %s: %s", metrics_path, exc)
+
+    merged_metrics = dict(existing_metrics)
+    merged_metrics.update(metrics_payload)
+
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(merged_metrics, f, indent=2)
 
     # Production Metadata JSON
     metadata_payload = {
