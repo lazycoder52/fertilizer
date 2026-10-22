@@ -5,6 +5,11 @@ For production deployments, Gunicorn binds to `app:app`.
 """
 
 import os
+import sys
+
+# Support disabling rate limiter for local load testing and benchmarking
+if "--no-limiter" in sys.argv:
+    os.environ["RATELIMIT_ENABLED"] = "0"
 
 from src.fertilizer_app import create_app
 

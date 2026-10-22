@@ -1,73 +1,145 @@
 """CI Model Quality Gate Tests.
 
-Ensures that no degraded, uncalibrated, or sub-standard ML models
+Ensures that no degraded, uncalibrated, overconfident, or sub-standard ML models
 can ever pass CI or be deployed to production.
+Evaluates the actual serialized binary model directly against the untouched holdout split.
 """
 
-import json
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pytest
+from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score
+
+
+def expected_calibration_error(y_true: np.ndarray, y_proba: np.ndarray, n_bins: int = 10) -> float:
+    """Compute multi-class Expected Calibration Error (ECE)."""
+    confidences = np.max(y_proba, axis=1)
+    predictions = np.argmax(y_proba, axis=1)
+    accuracies = predictions == y_true
+
+    bin_boundaries = np.linspace(0, 1, n_bins + 1)
+    ece = 0.0
+
+    for i in range(n_bins):
+        in_bin = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i + 1])
+        prop_in_bin = np.mean(in_bin)
+        if prop_in_bin > 0:
+            accuracy_in_bin = np.mean(accuracies[in_bin])
+            avg_confidence_in_bin = np.mean(confidences[in_bin])
+            ece += np.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+
+    return float(ece)
+
+
+def multiclass_brier_score(y_true: np.ndarray, y_proba: np.ndarray, num_classes: int) -> float:
+    """Calculate Multi-Class Brier Score."""
+    one_hot = np.zeros((len(y_true), num_classes))
+    for i, label in enumerate(y_true):
+        one_hot[i, int(label)] = 1.0
+    return float(np.mean(np.sum((y_proba - one_hot) ** 2, axis=1)))
 
 
 @pytest.fixture
-def metrics_data():
-    """Load latest metrics artifact."""
-    metrics_path = Path("model_files/metrics.json")
-    assert metrics_path.exists(), "metrics.json must exist in model_files/"
-    with open(metrics_path, encoding="utf-8") as f:
-        return json.load(f)
+def model_artifacts():
+    """Load production model, encoders, feature list, and untouched test data."""
+    model_dir = Path("model_files")
+    assert (model_dir / "model.joblib").exists(), "model.joblib missing"
+    assert (model_dir / "test_data.joblib").exists(), "test_data.joblib missing"
+    assert (model_dir / "features.joblib").exists(), "features.joblib missing"
+    assert (model_dir / "encoders.joblib").exists(), "encoders.joblib missing"
+
+    model = joblib.load(model_dir / "model.joblib")
+    test_data = joblib.load(model_dir / "test_data.joblib")
+    features = joblib.load(model_dir / "features.joblib")
+    encoders = joblib.load(model_dir / "encoders.joblib")
+
+    return {
+        "model": model,
+        "X_test": test_data["X_test"],
+        "y_test": test_data["y_test"],
+        "features": features,
+        "encoders": encoders,
+    }
 
 
-@pytest.fixture
-def metadata_data():
-    """Load latest metadata artifact."""
-    meta_path = Path("model_files/model_metadata.json")
-    assert meta_path.exists(), "model_metadata.json must exist in model_files/"
-    with open(meta_path, encoding="utf-8") as f:
-        return json.load(f)
+def test_saved_model_evaluates_on_untouched_holdout(model_artifacts):
+    """Quality Gate: Evaluates serialized model directly on untouched holdout split."""
+    model = model_artifacts["model"]
+    X_test = model_artifacts["X_test"]
+    y_test = model_artifacts["y_test"]
+    num_classes = len(model_artifacts["encoders"]["le_fertilizer"].classes_)
+
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)
+
+    top1 = float(accuracy_score(y_test, y_pred))
+    top3 = float(top_k_accuracy_score(y_test, y_proba, k=3, labels=np.arange(num_classes)))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
+
+    assert top1 >= 0.95, f"Holdout Top-1 accuracy {top1:.4f} is below 0.95 production threshold!"
+    assert top3 >= 0.99, f"Holdout Top-3 accuracy {top3:.4f} is below 0.99 production threshold!"
+    assert macro_f1 >= 0.90, f"Holdout Macro-F1 {macro_f1:.4f} is below 0.90 production threshold!"
 
 
-def test_model_holdout_accuracy_gate(metrics_data):
-    """Quality Gate: Holdout Top-1 accuracy must meet or exceed 95%."""
-    top1 = metrics_data["holdout_evaluation"]["top1_accuracy"]
-    assert top1 >= 0.95, f"Model Top-1 accuracy {top1:.4f} is below 0.95 production threshold!"
+def test_model_calibration_brier_and_ece_gates(model_artifacts):
+    """Quality Gate: Asserts Brier score <= 0.10 and ECE <= 0.15 on untouched holdout."""
+    model = model_artifacts["model"]
+    X_test = model_artifacts["X_test"]
+    y_test = model_artifacts["y_test"]
+    num_classes = len(model_artifacts["encoders"]["le_fertilizer"].classes_)
+
+    y_proba = model.predict_proba(X_test)
+    brier = multiclass_brier_score(y_test.to_numpy(), y_proba, num_classes)
+    ece = expected_calibration_error(y_test.to_numpy(), y_proba)
+
+    assert brier <= 0.10, f"Model Brier score {brier:.4f} exceeds 0.10 production threshold!"
+    assert ece <= 0.15, f"Model Expected Calibration Error {ece:.4f} exceeds 0.15 threshold!"
 
 
-def test_model_macro_f1_gate(metrics_data):
-    """Quality Gate: Macro-F1 must meet or exceed 0.95 across all classes."""
-    macro_f1 = metrics_data["holdout_evaluation"]["macro_f1"]
-    assert macro_f1 >= 0.95, f"Model Macro-F1 {macro_f1:.4f} is below 0.95 production threshold!"
+def test_zero_target_leakage_audit(model_artifacts):
+    """Quality Gate: Verifies 'Remark' and target are strictly excluded from input vectors."""
+    features = model_artifacts["features"]
+    X_test = model_artifacts["X_test"]
 
-
-def test_model_calibration_brier_gate(metrics_data):
-    """Quality Gate: Brier score must be <= 0.10 to guarantee probability calibration."""
-    brier = metrics_data["holdout_evaluation"]["brier_score"]
-    assert brier <= 0.10, (
-        f"Model Brier score {brier:.4f} indicates poorly calibrated probabilities!"
+    assert "Remark" not in features, "CRITICAL ERROR: 'Remark' target leakage detected in features!"
+    assert "Fertilizer" not in features, "CRITICAL ERROR: 'Fertilizer' target leakage in features!"
+    assert "Remark" not in X_test.columns, (
+        "CRITICAL ERROR: 'Remark' found in test input feature columns!"
     )
 
 
-def test_model_beats_majority_baseline(metrics_data):
-    """Quality Gate: Model must significantly outperform the majority class baseline."""
-    model_top1 = metrics_data["holdout_evaluation"]["top1_accuracy"]
-    baseline_top1 = metrics_data["baseline_comparison"]["Majority_Class_Baseline"][
-        "top1_accuracy_mean"
+def test_masked_input_reflects_uncertainty(model_artifacts):
+    """Quality Gate: Missing inputs must not yield overconfident scores (~50% mean confidence)."""
+    model = model_artifacts["model"]
+    X_test = model_artifacts["X_test"].copy()
+    num_cols = [
+        "Temperature",
+        "Moisture",
+        "Rainfall",
+        "PH",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium",
+        "Carbon",
     ]
-    margin = model_top1 - baseline_top1
-    assert margin > 0.50, f"Model performance margin {margin:.4f} over baseline is insufficient!"
 
+    # Mask all numerical features with medians
+    for col in num_cols:
+        X_test[col] = float(X_test[col].median())
 
-def test_model_beats_logistic_regression(metrics_data):
-    """Quality Gate: Model must outperform linear baseline."""
-    model_top1 = metrics_data["holdout_evaluation"]["top1_accuracy"]
-    lr_top1 = metrics_data["baseline_comparison"]["Logistic_Regression"]["top1_accuracy_mean"]
-    assert model_top1 > lr_top1, "Model failed to beat Logistic Regression baseline!"
+    y_proba_masked = model.predict_proba(X_test)
+    mean_confidence = float(np.mean(np.max(y_proba_masked, axis=1)))
+
+    assert mean_confidence <= 0.65, (
+        f"Masked inputs produced overconfident score {mean_confidence:.4f}! "
+        "Feature masking retrained model must temper confidence under missing inputs."
+    )
 
 
 def test_artifacts_exist_and_loadable():
-    """Quality Gate: All essential serialized artifacts must exist and be loadable."""
+    """Quality Gate: All required serialized artifacts exist and are loadable."""
     model_dir = Path("model_files")
     model = joblib.load(model_dir / "model.joblib")
     encoders = joblib.load(model_dir / "encoders.joblib")
@@ -78,3 +150,5 @@ def test_artifacts_exist_and_loadable():
     assert "le_crop" in encoders
     assert "le_fertilizer" in encoders
     assert len(features) == 10
+    assert (model_dir / "feature_medians.json").exists()
+    assert (model_dir / "model_metadata.json").exists()

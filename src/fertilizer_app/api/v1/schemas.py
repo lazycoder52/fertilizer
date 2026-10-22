@@ -85,6 +85,22 @@ class PredictResponse(BaseModel):
     remark: str
     top_3_recommendations: list[RecommendationItem]
     input_received: dict[str, Any]
+    is_imputed: bool = Field(
+        default=False,
+        description="True if any soil test parameters were omitted and imputed with benchmark medians",
+    )
+    imputed_fields: list[str] = Field(
+        default_factory=list,
+        description="List of omitted features that were imputed with benchmark medians",
+    )
+    warning: str | None = Field(
+        default=None,
+        description="Agronomic trust warning displayed when default imputed values are used",
+    )
+    explanation: dict[str, Any] | None = Field(
+        default=None,
+        description="SHAP local feature attribution breakdown",
+    )
 
 
 class HealthResponse(BaseModel):

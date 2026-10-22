@@ -1,13 +1,14 @@
-# Data Card: Fertilizer Recommendation Dataset
+# Data Card: Fertilizer Recommendation Benchmark Dataset (Synthetic)
 
-## 1. Dataset Overview
+## 1. Dataset Overview & Provenance
 
-- **Dataset Name**: Fertilizer Recommendation Agronomic Dataset
+- **Dataset Name**: Synthetic Agronomic Benchmark Dataset for Fertilizer Recommendation
 - **Format**: Comma-Separated Values (`fertilizer_recommendation_dataset.csv`)
 - **Total Records**: 3,100 instances
-- **Total Features**: 10 predictive features (8 continuous numerical sensors, 2 categorical variables)
-- **Target Label**: `Fertilizer` (10 unique classes)
-- **Auxiliary Column**: `Remark` (deterministic explanation / recommendation notes)
+- **Total Features**: 10 input features (8 continuous numerical soil test parameters, 2 categorical variables)
+- **Target Label**: `Fertilizer` (10 unique commercial formulation classes)
+- **Auxiliary Column**: `Remark` (agronomic explanation / guidance note; strictly excluded from training features)
+- **Dataset Nature**: **Synthetic / Rule-Generated Benchmark**. As documented in the empirical audit below, label assignments follow deterministic, axis-aligned rectangular rule boundaries.
 
 ---
 
@@ -53,15 +54,15 @@ The target variable `Fertilizer` contains 10 distinct commercial fertilizer form
 
 ## 4. Empirical Data Audit & Synthetic Artifact Findings
 
-A statistical audit performed in Phase 1 revealed that the labels in this dataset are **very likely synthetic or rule-generated**:
+A statistical audit performed in `src/ml/audit.py` revealed that the labels in this dataset are **rule-generated and synthetic**:
 
 1. **Physical Impossibility in Continuous Metrics**:
-   - Negative minimum values were detected in continuous environmental variables that are strictly non-negative in nature:
+   - Negative minimum values were detected in continuous environmental variables that are strictly non-negative in real-world agronomy:
      - Minimum `Rainfall`: $-85.71\text{ mm}$
      - Minimum `Phosphorous`: $-37.65\text{ kg/ha}$
      - Minimum `Potassium`: $-31.42\text{ kg/ha}$
      - Minimum `Carbon`: $-0.95\%$
-   - *Mitigation*: The production API enforces strict Pydantic v2 non-negative validation bounds ($x \ge 0.0$), discarding unphysical sensor input at the boundary.
+   - *Production Safeguard*: The production API enforces strict Pydantic v2 non-negative validation bounds ($x \ge 0.0$), rejecting physically impossible negative inputs at the API gateway.
 
 2. **Deterministic Partitioning Boundaries**:
    - Class transitions occur along sharp axis-aligned decision planes at round thresholds:
@@ -69,18 +70,19 @@ A statistical audit performed in Phase 1 revealed that the labels in this datase
      - Urea is assigned when $\text{Nitrogen} < 50$ and $\text{pH} \ge 6.0$.
      - DAP is assigned when $\text{Phosphorous} < 50$.
      - MOP is assigned when $\text{Potassium} < 50$.
-   - This accounts for the near-perfect holdout accuracy ($>99.5\%$) observed across Decision Trees, Random Forests, and Gradient Boosting models.
+   - This explains why an untuned single Decision Tree scores $99.35\% \pm 0.35\%$, comparable to tuned Random Forest ($99.27\% \pm 0.35\%$) and LightGBM ($99.11\% \pm 0.37\%$). The algorithms have learned the underlying rule generator.
 
-3. **Exact 1-to-1 Correspondence with `Remark`**:
-   - The auxiliary `Remark` text maps deterministically to the `Fertilizer` label with zero entropy, confirming rule-based label generation during dataset creation.
+3. **Target Leakage Verification (`Remark`)**:
+   - The auxiliary `Remark` column exhibits an exact 1-to-1 correspondence with `Fertilizer` (zero conditional entropy).
+   - *Target Leakage Audit*: `Remark` is strictly excluded from feature vectors during preprocessing, cross-validation, and production inference. It is used solely as an agronomic display note for end users after inference is complete.
 
 ---
 
 ## 5. Agronomic Limitations & Excluded Dimensions
 
-When utilizing this dataset for machine learning applications, several real-world farming considerations must be accounted for:
+When evaluating this dataset, several real-world farming considerations must be accounted for:
 
-1. **No Application Dosage**: The dataset provides recommendations on *which* fertilizer type to select, but does **not** determine application rate (e.g., $kg/ha$ or $lbs/acre$).
+1. **No Application Dosage**: The dataset classifies *which* commercial fertilizer formulation to select, but does **not** calculate dosage (application rate in $kg/ha$ or $lbs/acre$).
 2. **Missing Phenological Stages**: Real-world fertilization depends on crop growth stage (e.g., basal application at sowing vs. top-dressing during tillering or anthesis).
 3. **Excluded Soil Chemistry Metrics**:
    - **Electrical Conductivity (EC)**: Vital for assessing soil salinity.
@@ -92,6 +94,6 @@ When utilizing this dataset for machine learning applications, several real-worl
 
 ## 6. Recommendations for Production Use
 
-- **Input Validation**: Never pass raw unvalidated telemetry directly to the model. Use Pydantic schemas to validate sensor physics.
+- **Input Validation**: Never pass raw unvalidated inputs directly to the model. Use Pydantic schemas to validate physical bounds.
 - **Explainability**: Accompany all recommendations with TreeSHAP feature attributions so agronomists and farmers can verify the physical driver (e.g., *Low Soil Potassium*) before purchase.
-- **Safety Margin**: Where predictions have low confidence ($<60\%$), fallback to standard balanced NPK or recommend a laboratory chemical soil test.
+- **Handling Incomplete Inputs**: When users omit optional soil test parameters, confidence naturally drops (~45-72%). The system must display a visible low-confidence notice and recommend full laboratory soil test analysis.

@@ -35,6 +35,7 @@ class ModelService:
         self.required_features: list[str] = []
         self.fertilizer_descriptions: dict[str, str] = {}
         self.model_metadata: dict[str, Any] = {}
+        self.feature_medians: dict[str, float] = {}
 
         # Internal performance counters for /metrics
         self.metrics_counters = {
@@ -88,7 +89,24 @@ class ModelService:
             with open(meta_path, encoding="utf-8") as f:
                 self.model_metadata = json.load(f)
 
-        # 4. Initialize Explainability
+        # 4. Feature Medians for Imputation
+        medians_path = self.model_dir / "feature_medians.json"
+        if medians_path.exists():
+            with open(medians_path, encoding="utf-8") as f:
+                self.feature_medians = json.load(f)
+        else:
+            self.feature_medians = {
+                "Temperature": 26.13,
+                "Moisture": 0.60,
+                "Rainfall": 96.49,
+                "PH": 6.34,
+                "Nitrogen": 59.43,
+                "Phosphorous": 58.21,
+                "Potassium": 58.71,
+                "Carbon": 1.46,
+            }
+
+        # 5. Initialize Explainability
         self.shap_service = ShapService(model=self.model, feature_names=self.required_features)
 
         logger.info(
@@ -122,8 +140,9 @@ class ModelService:
 
         try:
             input_features = {}
+            imputed_fields = []
 
-            # Numerical features (defaults to 0.0 if omitted)
+            # Numerical features (defaults to development dataset median if omitted)
             numerical_features = [
                 "Temperature",
                 "Moisture",
@@ -137,7 +156,11 @@ class ModelService:
 
             for feat in numerical_features:
                 val = input_data.get(feat)
-                input_features[feat] = float(val) if val is not None and val != "" else 0.0
+                if val is not None and val != "":
+                    input_features[feat] = float(val)
+                else:
+                    input_features[feat] = float(self.feature_medians.get(feat, 0.0))
+                    imputed_fields.append(feat)
 
             # Categorical: Soil
             soil_raw = input_data.get("Soil")
@@ -194,6 +217,16 @@ class ModelService:
                 self.metrics_counters["classes_predicted"].get(recommendation, 0) + 1
             )
 
+            # Imputation trust warning
+            is_imputed = len(imputed_fields) > 0
+            warning_msg = None
+            if is_imputed:
+                warning_msg = (
+                    f"Low confidence: using default benchmark values for omitted soil test parameters "
+                    f"({', '.join(imputed_fields)}). Recommendations based on partial data have "
+                    f"reduced accuracy (~50-75%); laboratory soil test values are recommended for precise field application."
+                )
+
             # SHAP Explanation
             explanation = self.shap_service.explain(input_df, prediction_encoded)
 
@@ -203,6 +236,9 @@ class ModelService:
                 "confidence": round(confidence, 2),
                 "remark": self.fertilizer_descriptions.get(recommendation, ""),
                 "top_3_recommendations": top_recommendations,
+                "is_imputed": is_imputed,
+                "imputed_fields": imputed_fields,
+                "warning": warning_msg,
                 "explanation": explanation,
                 "input_received": input_data,
             }
@@ -228,6 +264,7 @@ class ModelService:
                 "Potassium",
                 "Carbon",
             ],
+            "feature_medians": self.feature_medians,
             "required_categorical": ["Soil", "Crop"],
             "model_metadata": self.model_metadata,
         }
