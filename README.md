@@ -7,23 +7,7 @@
 
 A machine learning service and REST API for agronomic fertilizer recommendation, featuring TreeSHAP explainability, Pydantic v2 input contracts, lean multi-stage Docker containerization, and automated CI quality gates.
 
----
-
-### 🌐 Live Deployment & Documentation
-
-- **Live Web Application**: [fertilizer-recommendation-1e6z.onrender.com](https://fertilizer-recommendation-1e6z.onrender.com)
-- **Interactive OpenAPI / Swagger Documentation**: [fertilizer-recommendation-1e6z.onrender.com/apidocs/](https://fertilizer-recommendation-1e6z.onrender.com/apidocs/)
-
-> [!NOTE]
-> **Free Tier Cold Start**: Hosted on Render's free tier. If the service has been inactive, the container spins down to conserve resources and may take **30–60 seconds to spin up** on the initial request.
-
----
-
-### 🔍 Real-Time TreeSHAP Feature Attribution
-
-Every recommendation is accompanied by local Shapley attributions computed via fast TreeSHAP, revealing the precise positive and negative nutrient drivers behind the output:
-
-![TreeSHAP Feature Attribution](docs/images/shap_waterfall_preview.svg)
+Deployment configs are included; the service is not currently hosted. Interactive OpenAPI / Swagger documentation is available at `http://localhost:5000/apidocs/` when run locally.
 
 ---
 
