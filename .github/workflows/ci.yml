@@ -64,3 +64,50 @@ jobs:
           curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/health
           docker logs fertilizer-service
           docker stop fertilizer-service
+
+  container-load-test:
+    name: Production Container Load Test (Gunicorn + Locust)
+    runs-on: ubuntu-latest
+    needs: [docker-build-and-verify]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Locust & Pandas
+        run: pip install locust pandas
+
+      - name: Build Lean Production Docker Image
+        run: docker build -t fertilizer-app:loadtest .
+
+      - name: Start Container with Multi-Worker Gunicorn
+        run: |
+          docker run -d --name fertilizer-benchmark -p 5000:5000 -e RATELIMIT_ENABLED=false fertilizer-app:loadtest
+          sleep 6
+          curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/health
+
+      - name: Execute Headless Locust Load Test (30 Users, 30s)
+        run: |
+          locust -f locustfile.py --headless -u 30 -r 6 -t 30s --host http://localhost:5000 --csv=locust_stats --html=locust_report.html
+
+      - name: Parse and Display Production Load Test Metrics
+        run: |
+          python -c "
+          import pandas as pd
+          df = pd.read_csv('locust_stats_stats.csv')
+          print('\n========== GUNICORN PRODUCTION CONTAINER LOAD TEST RESULTS ==========')
+          print(df[['Name', 'Request Count', 'Failure Count', 'Median Response Time', '95%', 'Average Response Time', 'Requests/s']].to_string(index=False))
+          "
+          docker logs fertilizer-benchmark --tail 25
+
+      - name: Upload Locust Benchmark Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gunicorn-locust-benchmark
+          path: |
+            locust_report.html
+            locust_stats_*.csv

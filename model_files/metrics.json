@@ -106,6 +106,32 @@
       "ece_mean": 0.009250184368016643,
       "ece_std": 0.005313607429904771,
       "training_time_seconds": 3.593
+    },
+    "Random_Forest_Tuned_Clean_CV": {
+      "top1_accuracy_mean": 0.9931,
+      "top1_accuracy_std": 0.0027,
+      "top3_accuracy_mean": 1.0,
+      "top3_accuracy_std": 0.0,
+      "macro_f1_mean": 0.9779,
+      "macro_f1_std": 0.0069,
+      "brier_score_mean": 0.0317,
+      "brier_score_std": 0.0033,
+      "ece_mean": 0.0851,
+      "ece_std": 0.0041,
+      "training_time_seconds": 1.42
+    },
+    "Random_Forest_Tuned_Masked_Prod_CV": {
+      "top1_accuracy_mean": 0.9875,
+      "top1_accuracy_std": 0.0039,
+      "top3_accuracy_mean": 1.0,
+      "top3_accuracy_std": 0.0,
+      "macro_f1_mean": 0.9517,
+      "macro_f1_std": 0.0119,
+      "brier_score_mean": 0.0626,
+      "brier_score_std": 0.0064,
+      "ece_mean": 0.1345,
+      "ece_std": 0.0034,
+      "training_time_seconds": 2.15
     }
   },
   "permutation_importance": {
@@ -525,5 +551,49 @@
     "Organic Fertilizer",
     "Urea",
     "Water Retaining Fertilizer"
-  ]
+  ],
+  "missing_input_robustness_soil_crop_only_holdout": {
+    "Majority_Class_Baseline": {
+      "top1_accuracy": 0.1935,
+      "top3_accuracy": 0.3387,
+      "ece": 0.6601,
+      "avg_confidence": 1.0
+    },
+    "Logistic_Regression": {
+      "top1_accuracy": 0.1935,
+      "top3_accuracy": 0.6629,
+      "ece": 0.188,
+      "avg_confidence": 0.3815
+    },
+    "Decision_Tree": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.2984,
+      "ece": 0.7823,
+      "avg_confidence": 1.0
+    },
+    "LightGBM_Default": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.6677,
+      "ece": 0.7823,
+      "avg_confidence": 1.0
+    },
+    "Random_Forest_Default_Clean": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.3516,
+      "ece": 0.7449,
+      "avg_confidence": 0.9626
+    },
+    "Random_Forest_Tuned_Clean": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.5613,
+      "ece": 0.7457,
+      "avg_confidence": 0.9635
+    },
+    "Random_Forest_Tuned_Masked_Prod": {
+      "top1_accuracy": 0.4629,
+      "top3_accuracy": 0.7984,
+      "ece": 0.0593,
+      "avg_confidence": 0.449
+    }
+  }
 }

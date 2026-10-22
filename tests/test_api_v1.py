@@ -121,12 +121,20 @@ def test_api_v1_predict_pydantic_bounds_ph(client):
 
 
 def test_api_v1_predict_pydantic_bounds_moisture(client):
-    """Verify Pydantic rejects out-of-bounds moisture (> 1.0)."""
-    payload = {"Soil": "Loamy Soil", "Crop": "Wheat", "Moisture": 5.0}
-    response = client.post("/api/v1/predict", json=payload)
-    assert response.status_code == 400
-    data = response.get_json()
-    assert "Validation error" in data["error"]
+    """Verify Pydantic rejects out-of-bounds moisture (> 100.0 or < 0.0) and converts valid percentages."""
+    # Out of bounds rejection
+    payload_bad = {"Soil": "Loamy Soil", "Crop": "Wheat", "Moisture": 150.0}
+    response_bad = client.post("/api/v1/predict", json=payload_bad)
+    assert response_bad.status_code == 400
+    data_bad = response_bad.get_json()
+    assert "Validation error" in data_bad["error"]
+
+    # Valid percentage (60.0%) accepted and converted to 0.60
+    payload_good = {"Soil": "Loamy Soil", "Crop": "Wheat", "Moisture": 60.0}
+    response_good = client.post("/api/v1/predict", json=payload_good)
+    assert response_good.status_code == 200
+    data_good = response_good.get_json()
+    assert data_good["input_received"]["Moisture"] == 0.60
 
 
 def test_api_v1_predict_missing_required(client):

@@ -68,12 +68,23 @@ class TestSchemas:
             PredictRequest(Soil="Loamy", Crop="Wheat", PH=-1.0)
 
     def test_moisture_out_of_bounds(self):
-        """Test validation error when moisture exceeds [0.0, 1.0]."""
+        """Test validation error when moisture exceeds [0.0, 100.0]."""
         with pytest.raises(ValidationError):
-            PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=1.5)
+            PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=150.0)
 
         with pytest.raises(ValidationError):
             PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=-0.1)
+
+    def test_moisture_percentage_auto_conversion(self):
+        """Test automatic conversion of percentage inputs (> 1.0) to fractions [0.0, 1.0]."""
+        req_pct = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=60.0)
+        assert req_pct.Moisture == 0.60
+
+        req_frac = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=0.60)
+        assert req_frac.Moisture == 0.60
+
+        req_full = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=1.0)
+        assert req_full.Moisture == 1.0
 
     def test_temperature_out_of_bounds(self):
         """Test validation error when temperature exceeds [-20, 60]."""
