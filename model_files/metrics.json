@@ -1030,6 +1030,13 @@
       "avg": 34.4,
       "rps": 20.37,
       "offered_load_desc": "Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30s via headless Locust, representing ~20 req/s offered load (30 Locust users with think time; load generator and server share a GitHub Actions runner):"
+    },
+    "source": {
+      "run_id": "39829845795",
+      "run_url": "https://github.com/lazycoder52/fertilizer/actions/runs/39829845795",
+      "run_date": "2026-10-22",
+      "commit_sha": "93c0282",
+      "csv_path": "benchmarks/locust_stats.csv"
     }
   }
 }

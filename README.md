@@ -195,7 +195,11 @@ Executed against the production Linux Docker container running multi-worker Guni
 | `POST /api/v1/predict` (Partial / Imputed) | 130 | $0.00\%$ | **39 ms** | **73 ms** | 47.8 ms | ~4.48 req/s |
 | `POST /api/v1/explain` (TreeSHAP) | 74 | $0.00\%$ | **40 ms** | **65 ms** | 45.6 ms | ~2.55 req/s |
 | **Aggregated Production Total** | **591** | **0.00%** | **38 ms** | **73 ms** | **34.4 ms** | **~20.37 req/s** |
+
+Source: CI run [39829845795](https://github.com/lazycoder52/fertilizer/actions/runs/39829845795)
 <!-- END:load_test_table -->
+
+To refresh load test benchmark results: download the `gunicorn-locust-benchmark` artifact CSV from the target GitHub Actions CI run into `benchmarks/locust_stats.csv`, run `python -m src.ml.load_test_summary`, and run `python -m src.ml.render_docs`.
 
 ---
 

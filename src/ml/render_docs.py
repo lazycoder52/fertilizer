@@ -330,8 +330,10 @@ def render_load_test_table(metrics: dict[str, Any]) -> str:
     """Render the Gunicorn load test benchmark table."""
     load_test = metrics.get("load_test")
     if not load_test:
-        # Fallback to model_files/locust_benchmark.csv if available
-        csv_path = Path("model_files/locust_benchmark.csv")
+        # Fallback to benchmarks/locust_stats.csv or model_files/locust_benchmark.csv if available
+        csv_path = Path("benchmarks/locust_stats.csv")
+        if not csv_path.exists():
+            csv_path = Path("model_files/locust_benchmark.csv")
         if csv_path.exists():
             import pandas as pd
 
@@ -422,6 +424,15 @@ def render_load_test_table(metrics: dict[str, Any]) -> str:
             f"| **Aggregated Production Total** | **{agg.get('requests', 0)}** | **{agg.get('failures', 0.0):.2f}%** | "
             f"**{agg.get('p50', 0)} ms** | **{agg.get('p95', 0)} ms** | **{agg.get('avg', 0.0):.1f} ms** | **~{agg.get('rps', 0.0):.2f} req/s** |"
         )
+
+    source = load_test.get("source", {})
+    run_id = source.get("run_id")
+    run_url = source.get("run_url")
+    if run_id:
+        if run_url:
+            lines.append(f"\nSource: CI run [{run_id}]({run_url})")
+        else:
+            lines.append(f"\nSource: CI run {run_id}")
 
     return "\n".join(lines)
 
