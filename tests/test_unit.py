@@ -276,3 +276,75 @@ class TestServices:
         assert 0 < len(explanation["top_contributions"]) <= 6
         assert "positive_drivers" in explanation
         assert "negative_drivers" in explanation
+
+
+class TestFeatureMasking:
+    """Unit tests for create_mask_augmented_data function."""
+
+    @pytest.fixture
+    def sample_data(self):
+        import numpy as np
+        import pandas as pd
+
+        rng = np.random.default_rng(123)
+        n = 400
+        x_df = pd.DataFrame(
+            {
+                "Temperature": rng.uniform(10, 40, n),
+                "Moisture": rng.uniform(0.1, 0.9, n),
+                "Nitrogen": rng.uniform(10, 100, n),
+                "Phosphorous": rng.uniform(5, 80, n),
+                "Potassium": rng.uniform(5, 60, n),
+                "Soil_encoded": rng.integers(0, 5, n),
+                "Crop_encoded": rng.integers(0, 10, n),
+            }
+        )
+        y_ser = pd.Series(rng.integers(0, 4, n))
+        num_cols = ["Temperature", "Moisture", "Nitrogen", "Phosphorous", "Potassium"]
+        medians = {c: float(x_df[c].median()) for c in num_cols}
+        return x_df, y_ser, num_cols, medians
+
+    def test_masking_is_deterministic_given_seed(self, sample_data):
+        from src.ml.train_and_evaluate import create_mask_augmented_data
+
+        x_df, y_ser, num_cols, medians = sample_data
+        aug_x1, aug_y1 = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+        aug_x2, aug_y2 = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+
+        assert aug_x1.equals(aug_x2)
+        assert aug_y1.equals(aug_y2)
+
+    def test_mask_rate_approximately_35_percent(self, sample_data):
+        from src.ml.train_and_evaluate import create_mask_augmented_data
+
+        x_df, y_ser, num_cols, medians = sample_data
+        n = len(x_df)
+        aug_x, _ = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+
+        # Variant 1 is the second block [n:2n]
+        var1 = aug_x.iloc[n : 2 * n]
+        total_cells = n * len(num_cols)
+        masked_cells = sum(int((var1[col] == medians[col]).sum()) for col in num_cols)
+        observed_mask_rate = masked_cells / total_cells
+
+        assert 0.30 <= observed_mask_rate <= 0.40, (
+            f"Observed mask rate {observed_mask_rate:.3f} was not approximately 0.35"
+        )
+
+    def test_only_numeric_columns_are_masked(self, sample_data):
+        from src.ml.train_and_evaluate import create_mask_augmented_data
+
+        x_df, y_ser, num_cols, medians = sample_data
+        n = len(x_df)
+        aug_x, _ = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+
+        # Assert categorical columns Soil_encoded and Crop_encoded are strictly untouched across all 4 variants
+        for i in range(4):
+            block = aug_x.iloc[i * n : (i + 1) * n]
+            assert (block["Soil_encoded"].values == x_df["Soil_encoded"].values).all(), (
+                f"Soil_encoded was modified in variant block {i}"
+            )
+            assert (block["Crop_encoded"].values == x_df["Crop_encoded"].values).all(), (
+                f"Crop_encoded was modified in variant block {i}"
+            )
+
