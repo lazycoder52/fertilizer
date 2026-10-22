@@ -239,8 +239,10 @@ def run_ablation_study(
 
     metrics_data.update(
         {
-            "ablation_timestamp": datetime.now(UTC).isoformat(),
-            "git_commit": get_git_commit_hash(),
+            "ablation_timestamp": metrics_data.get(
+                "ablation_timestamp", datetime.now(UTC).isoformat()
+            ),
+            "git_commit": metrics_data.get("git_commit", get_git_commit_hash()),
             "ablation_table": ablation_table,
             "ablation_study": ablation_dict,
             "permutation_importance": sorted_perm_importance,

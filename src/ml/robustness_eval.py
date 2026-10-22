@@ -395,6 +395,14 @@ def run_robustness_evaluation(
             seed=seed,
             mask_rate=cfg["masking"]["mask_prob"],
         )
+        if (
+            "baseline_comparison" in existing_metrics
+            and name in existing_metrics["baseline_comparison"]
+            and "training_time_seconds" in existing_metrics["baseline_comparison"][name]
+        ):
+            res["training_time_seconds"] = existing_metrics["baseline_comparison"][name][
+                "training_time_seconds"
+            ]
         cv_results[name] = res
         logger.info(
             "[%s] CV Top-1: %.4f (±%.4f) | Macro-F1: %.4f | ECE: %.4f (took %.2fs)",
@@ -513,8 +521,10 @@ def run_robustness_evaluation(
 
     metrics_data.update(
         {
-            "evaluation_timestamp": datetime.now(UTC).isoformat(),
-            "git_commit": get_git_commit_hash(),
+            "evaluation_timestamp": metrics_data.get(
+                "evaluation_timestamp", datetime.now(UTC).isoformat()
+            ),
+            "git_commit": metrics_data.get("git_commit", get_git_commit_hash()),
             "model_architecture": "RandomForestClassifier (Optuna Tuned on Dev Split with Masking)",
             "best_hyperparameters": best_rf_params,
             "target_leakage_audit": metrics_data.get(
