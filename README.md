@@ -61,7 +61,7 @@ graph TD
   - Added Pydantic v2 boundary enforcement to reject unphysical inputs at the API gateway.
 - **Model Selection & Masked Training Rationale**:
   - Across candidates, high accuracy stems from learning the synthetic rule partitions, while missing-input robustness comes strictly from **feature mask augmentation**, not from model architecture. TreeSHAP attribution is supported across tree models including LightGBM and Decision Trees.
-  - When continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with extreme overconfidence (mean confidence $96.7\% - 100\%$, ECE $> 0.74$).
+  - When continuous inputs are omitted, unmasked tree models (Decision Tree, LightGBM, Random Forest Default, Random Forest Tuned) collapse to $21.77\%$ Top-1 accuracy with extreme over-confidence (mean confidence $96.73\% - 100.00\%$, ECE $> 0.74$). Across all evaluated unmasked candidates (including Logistic Regression at $19.35\%$ accuracy / $38.15\%$ confidence / ECE $0.1880$, and the Zero-Rule baseline at $34.03\%$ accuracy / $100.00\%$ confidence / ECE $0.6597$), every unmasked model is over-confident (mean confidence > accuracy).
   - When trained with 35% feature masking, models gracefully degrade:
     - **Masked LightGBM** achieves **$49.84\%$ Top-1** ($84.19\%$ Top-3, ECE $0.0352$).
     - **Masked Decision Tree** achieves **$48.87\%$ Top-1** ($82.26\%$ Top-3, ECE $0.0623$).
@@ -71,7 +71,7 @@ graph TD
   - Top-1 Accuracy: **$98.71\%$** | Top-3 Accuracy: **$100.00\%$** | Macro-F1: **$0.9431$** | Brier Score: **$0.0552$** | Expected Calibration Error (ECE): **$0.1209$**.
 - **Probability Reliability & Confidence Tempering**:
   - On clean inputs, the production model is **under-confident**: mean top-1 predicted confidence is **$86.62\%$** compared to empirical accuracy of **$98.71\%$**, which directly accounts for the $\text{ECE} = 0.1209$.
-  - On missing inputs (Soil + Crop only), unmasked models are severely **over-confident** ($100\%$ confidence on $21.77\%$ accuracy), whereas the masked model tempers confidence to **$44.90\%$** ($\text{ECE} = 0.0593$).
+  - On missing inputs (Soil + Crop only), all unmasked candidates are over-confident (mean confidence > accuracy); unmasked tree models output severe over-confidence ($96.73\% - 100.00\%$ confidence on $21.77\%$ accuracy, ECE $0.7496 - 0.7823$), whereas the masked production model tempers confidence to **$44.90\%$** ($\text{ECE} = 0.0593$).
 - **Flexible Moisture Input Rule**:
   - Soil moisture input rule: Values in $[0.0, 1.0]$ are treated as fractions (where `1.0` means 100%), and values in $(1.0, 100.0]$ are treated as percentages (e.g., `0.5` means 50%, `1.01` means 1.01%, `60` means 60%, `100` means 100%) and normalized to $[0.0, 1.0]$. Values $> 100.0$ or $< 0.0$ are rejected by validation.
   - Displays a visible **"Low confidence: using default benchmark values for omitted soil test parameters"** warning in the UI and API whenever defaults are used.
@@ -118,7 +118,7 @@ The reliability diagram visualizes confidence vs empirical accuracy across 10 eq
 > **Expected Calibration Error (ECE) Definition**:
 > Top-label Expected Calibration Error partitioned into $M=10$ equal-width bins spanning $[0, 1]$:
 > $$\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} |\text{acc}(B_m) - \text{conf}(B_m)|$$
-> On clean inputs, the production model is **under-confident**: accuracy is $98.71\%$ but mean confidence is $86.62\%$, yielding $\text{ECE} = 0.1209$. On missing inputs, unmasked models are drastically **over-confident** ($100\%$ confidence on $21.77\%$ accuracy, $\text{ECE} = 0.7823$), whereas masked training tempers confidence to $44.90\%$ ($\text{ECE} = 0.0593$).
+> On clean inputs, the production model is **under-confident**: accuracy is $98.71\%$ but mean confidence is $86.62\%$, yielding $\text{ECE} = 0.1209$. On missing inputs, all unmasked candidates remain over-confident (mean confidence > accuracy), with unmasked tree models collapsing to $21.77\%$ accuracy while maintaining $96.73\% - 100.00\%$ confidence ($\text{ECE} = 0.7496 - 0.7823$; e.g. clean Decision Tree and LightGBM output $100.00\%$ confidence with $\text{ECE} = 0.7823$). In contrast, masked training tempers confidence to $44.90\%$ ($\text{ECE} = 0.0593$).
 
 ---
 
