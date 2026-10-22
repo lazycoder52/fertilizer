@@ -39,6 +39,40 @@ def test_api_v1_info(client):
     assert len(data["soil_types"]) > 0
 
 
+def test_api_v1_info_metrics_match_metrics_json(client):
+    """Verify each metric returned by /api/v1/info exactly matches model_files/metrics.json."""
+    import json
+    from pathlib import Path
+
+    metrics_path = Path("model_files/metrics.json")
+    assert metrics_path.exists(), "metrics.json must exist"
+    with open(metrics_path, encoding="utf-8") as f:
+        metrics_data = json.load(f)
+
+    holdout = metrics_data["holdout_evaluation"]
+
+    response = client.get("/api/v1/info")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    # Check metrics under model_metadata
+    assert "model_metadata" in data
+    meta = data["model_metadata"]
+    for key, expected_val in holdout.items():
+        if key in meta:
+            assert meta[key] == pytest.approx(expected_val, abs=1e-6), (
+                f"Metric {key} in model_metadata ({meta[key]}) != metrics.json ({expected_val})"
+            )
+
+    # Check top-level metrics block
+    assert "metrics" in data
+    for key, expected_val in holdout.items():
+        assert key in data["metrics"]
+        assert data["metrics"][key] == pytest.approx(expected_val, abs=1e-6), (
+            f"Metric {key} in info metrics ({data['metrics'][key]}) != metrics.json ({expected_val})"
+        )
+
+
 def test_api_v1_metrics(client):
     """Verify /api/v1/metrics returns operational counters."""
     response = client.get("/api/v1/metrics")
