@@ -1,6 +1,6 @@
 """CI Model Quality Gate Tests.
 
-Ensures that no degraded, uncalibrated, overconfident, or sub-standard ML models
+Ensures that no degraded, overconfident, or sub-standard ML models
 can ever pass CI or be deployed to production.
 Evaluates the actual serialized binary model directly against the untouched holdout split.
 """
@@ -164,8 +164,16 @@ def test_artifacts_exist_and_loadable():
     assert (model_dir / "model_metadata.json").exists()
 
 
-def test_readme_numbers_match_metrics_json():
-    """Quality Gate: Assert key figures in README match metrics.json exactly."""
+def test_render_docs_check():
+    """Quality Gate: Assert all markdown docs match metrics.json via render_docs --check."""
+    from src.ml.render_docs import process_docs
+
+    rc = process_docs(check=True)
+    assert rc == 0, "Documentation check failed: docs out of sync with model_files/metrics.json"
+
+
+def test_readme_row_and_line_level_metrics():
+    """Quality Gate: Strict row-level and labelled-line metric verification in README.md."""
     metrics_path = Path("model_files/metrics.json")
     readme_path = Path("README.md")
 
@@ -175,23 +183,45 @@ def test_readme_numbers_match_metrics_json():
     with open(metrics_path, encoding="utf-8") as f:
         metrics = json.load(f)
     with open(readme_path, encoding="utf-8") as f:
-        readme_text = f.read()
+        lines = f.readlines()
 
     holdout = metrics["holdout_evaluation"]
-    top1 = holdout["top1_accuracy"]
-    top3 = holdout["top3_accuracy"]
-    f1 = holdout["macro_f1"]
-    ece = holdout["expected_calibration_error"]
-    sc_top1 = metrics["masked_input_evaluations"]["soil_and_crop_only"]["top1_accuracy"]
+    top1_str = f"${holdout['top1_accuracy'] * 100:.2f}\\%$"
+    top3_str = f"${holdout['top3_accuracy'] * 100:.2f}\\%$"
+    f1_str = f"${holdout['macro_f1']:.4f}$"
+    ece_str = f"${holdout['expected_calibration_error']:.4f}$"
+    sc_top1_pct = (
+        f"{metrics['masked_input_evaluations']['soil_and_crop_only']['top1_accuracy'] * 100:.2f}%"
+    )
 
-    top1_str = f"{top1 * 100:.2f}%"
-    top3_str = f"{top3 * 100:.2f}%"
-    f1_str = f"{f1:.4f}"
-    ece_str = f"{ece:.4f}"
-    sc_top1_str = f"{sc_top1 * 100:.2f}%"
+    # 1. Labelled line for Top-1
+    top1_line = next((line for line in lines if "- **Top-1 Accuracy**:" in line), None)
+    assert top1_line is not None and top1_str in top1_line, (
+        f"Top-1 {top1_str} not in labelled line: {top1_line}"
+    )
 
-    assert top1_str in readme_text, f"Top-1 {top1_str} not found in README.md"
-    assert top3_str in readme_text, f"Top-3 {top3_str} not found in README.md"
-    assert f1_str in readme_text, f"Macro-F1 {f1_str} not found in README.md"
-    assert ece_str in readme_text, f"ECE {ece_str} not found in README.md"
-    assert sc_top1_str in readme_text, f"Soil+Crop Top-1 {sc_top1_str} not found in README.md"
+    # 2. Labelled line for Top-3
+    top3_line = next((line for line in lines if "- **Top-3 Accuracy**:" in line), None)
+    assert top3_line is not None and top3_str in top3_line, (
+        f"Top-3 {top3_str} not in labelled line: {top3_line}"
+    )
+
+    # 3. Labelled line for Macro-F1
+    f1_line = next((line for line in lines if "- **Macro-F1**:" in line), None)
+    assert f1_line is not None and f1_str in f1_line, (
+        f"Macro-F1 {f1_str} not in labelled line: {f1_line}"
+    )
+
+    # 4. Labelled line for ECE
+    ece_line = next(
+        (line for line in lines if "- **Expected Calibration Error (ECE)**:" in line), None
+    )
+    assert ece_line is not None and ece_str in ece_line, (
+        f"ECE {ece_str} not in labelled line: {ece_line}"
+    )
+
+    # 5. Table row for Soil+Crop Top-1 under Method A ablation
+    sc_ablation_line = next((line for line in lines if "| **Soil + Crop** |" in line), None)
+    assert sc_ablation_line is not None and sc_top1_pct in sc_ablation_line, (
+        f"Soil+Crop Top-1 {sc_top1_pct} not in ablation row: {sc_ablation_line}"
+    )
