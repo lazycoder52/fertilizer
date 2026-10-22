@@ -395,7 +395,7 @@ fertilizer-app/
 │       ├── load_test_summary.py   # Locust CSV benchmark stats parser and metrics.json updater
 │       ├── render_docs.py         # Markdown synchronization and CI check from metrics.json
 │       ├── robustness_eval.py     # 9-model CV, clean holdout, Soil+Crop holdout, and reliability diagram
-│       └── train_and_evaluate.py  # Dev/holdout splitting, CV benchmarking, Optuna, masking, artifact export
+│       └── train_and_evaluate.py  # Dev/holdout splitting, CV benchmarking, Optuna, masking, artifact export. Retrains and overwrites model_files; not used to reproduce the documented figures.
 ├── templates/
 │   └── index.html                 # Modern glassmorphism UI with imputation warning banner & SHAP bars
 ├── tests/
