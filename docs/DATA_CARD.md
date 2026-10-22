@@ -70,7 +70,7 @@ A statistical audit performed in `src/ml/audit.py` revealed that the labels in t
      - Urea is assigned when $\text{Nitrogen} < 50$ and $\text{pH} \ge 6.0$.
      - DAP is assigned when $\text{Phosphorous} < 50$.
      - MOP is assigned when $\text{Potassium} < 50$.
-   - This explains why an untuned single Decision Tree scores $99.35\% \pm 0.35\%$, comparable to tuned Random Forest ($99.27\% \pm 0.35\%$) and LightGBM ($99.11\% \pm 0.37\%$). The algorithms have learned the underlying rule generator.
+   - This explains why an untuned single Decision Tree scores $99.28\% \pm 0.52\%$, comparable to Random Forest ($99.11\% \pm 0.33\%$) and LightGBM ($98.71\% \pm 0.35\%$). The algorithms have learned the underlying rule generator.
 
 3. **Target Leakage Verification (`Remark`)**:
    - The auxiliary `Remark` column exhibits an exact 1-to-1 correspondence with `Fertilizer` (zero conditional entropy).
