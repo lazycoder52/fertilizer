@@ -94,14 +94,9 @@ jobs:
         run: |
           locust -f locustfile.py --headless -u 30 -r 6 -t 30s --host http://localhost:5000 --csv=locust_stats --html=locust_report.html
 
-      - name: Parse and Display Production Load Test Metrics
+      - name: Parse and Record Production Load Test Metrics
         run: |
-          python -c "
-          import pandas as pd
-          df = pd.read_csv('locust_stats_stats.csv')
-          print('\n========== GUNICORN PRODUCTION CONTAINER LOAD TEST RESULTS ==========')
-          print(df[['Name', 'Request Count', 'Failure Count', 'Median Response Time', '95%', 'Average Response Time', 'Requests/s']].to_string(index=False))
-          "
+          python -m src.ml.load_test_summary --csv locust_stats_stats.csv --users 30 --duration 30s
           docker logs fertilizer-benchmark --tail 25
 
       - name: Upload Locust Benchmark Artifacts

@@ -286,29 +286,23 @@ def run_robustness_evaluation(
     seed = cfg.get("seed", 42)
     output_dir = Path(cfg.get("output_dir", "model_files"))
 
-    # Load test data and feature medians
-    test_data = joblib.load(output_dir / "test_data.joblib")
-    X_test: pd.DataFrame = test_data["X_test"]
-    y_test: pd.Series = test_data["y_test"]
-    feature_cols: list[str] = test_data["feature_cols"]
-    class_names: list[str] = test_data["classes"]
+    from src.ml.split_utils import get_dataset_splits
+
+    splits = get_dataset_splits(
+        data_path=cfg["data_path"],
+        output_dir=output_dir,
+        seed=seed,
+    )
+    X_dev: pd.DataFrame = splits["X_dev"]
+    y_dev: pd.Series = splits["y_dev"]
+    X_test: pd.DataFrame = splits["X_test"]
+    y_test: pd.Series = splits["y_test"]
+    numerical_cols: list[str] = splits["numerical_cols"]
+    class_names: list[str] = splits["class_names"]
     num_classes = len(class_names)
-    numerical_cols = [c for c in feature_cols if c not in ["Soil_encoded", "Crop_encoded"]]
 
     with open(output_dir / "feature_medians.json", encoding="utf-8") as f:
         feature_medians = json.load(f)
-
-    # Load raw dataset and reconstruct development split
-    encoders = joblib.load(output_dir / "encoders.joblib")
-    df = pd.read_csv(cfg["data_path"])
-    df["Soil_encoded"] = encoders["le_soil"].transform(df["Soil"].astype(str))
-    df["Crop_encoded"] = encoders["le_crop"].transform(df["Crop"].astype(str))
-    df["Fertilizer_encoded"] = encoders["le_fertilizer"].transform(df["Fertilizer"].astype(str))
-
-    X = df[feature_cols]
-    y = df["Fertilizer_encoded"]
-    X_dev = X.drop(index=X_test.index)
-    y_dev = y.drop(index=X_test.index)
 
     logger.info(
         "Reconstructed Development set: %d samples, Holdout: %d samples", len(X_dev), len(X_test)
@@ -395,6 +389,14 @@ def run_robustness_evaluation(
             seed=seed,
             mask_rate=cfg["masking"]["mask_prob"],
         )
+        if (
+            "baseline_comparison" in existing_metrics
+            and name in existing_metrics["baseline_comparison"]
+            and "training_time_seconds" in existing_metrics["baseline_comparison"][name]
+        ):
+            res["training_time_seconds"] = existing_metrics["baseline_comparison"][name][
+                "training_time_seconds"
+            ]
         cv_results[name] = res
         logger.info(
             "[%s] CV Top-1: %.4f (±%.4f) | Macro-F1: %.4f | ECE: %.4f (took %.2fs)",
@@ -513,8 +515,10 @@ def run_robustness_evaluation(
 
     metrics_data.update(
         {
-            "evaluation_timestamp": datetime.now(UTC).isoformat(),
-            "git_commit": get_git_commit_hash(),
+            "evaluation_timestamp": metrics_data.get(
+                "evaluation_timestamp", datetime.now(UTC).isoformat()
+            ),
+            "git_commit": metrics_data.get("git_commit", get_git_commit_hash()),
             "model_architecture": "RandomForestClassifier (Optuna Tuned on Dev Split with Masking)",
             "best_hyperparameters": best_rf_params,
             "target_leakage_audit": metrics_data.get(

@@ -1,6 +1,6 @@
 """CI Model Quality Gate Tests.
 
-Ensures that no degraded, uncalibrated, overconfident, or sub-standard ML models
+Ensures that no degraded, overconfident, or sub-standard ML models
 can ever pass CI or be deployed to production.
 Evaluates the actual serialized binary model directly against the untouched holdout split.
 """
@@ -164,8 +164,16 @@ def test_artifacts_exist_and_loadable():
     assert (model_dir / "model_metadata.json").exists()
 
 
-def test_readme_numbers_match_metrics_json():
-    """Quality Gate: Assert key figures in README match metrics.json exactly."""
+def test_render_docs_check():
+    """Quality Gate: Assert all markdown docs match metrics.json via render_docs --check."""
+    from src.ml.render_docs import process_docs
+
+    rc = process_docs(check=True)
+    assert rc == 0, "Documentation check failed: docs out of sync with model_files/metrics.json"
+
+
+def test_readme_row_and_line_level_metrics():
+    """Quality Gate: Strict row-level and labelled-line metric verification in README.md."""
     metrics_path = Path("model_files/metrics.json")
     readme_path = Path("README.md")
 
@@ -175,23 +183,110 @@ def test_readme_numbers_match_metrics_json():
     with open(metrics_path, encoding="utf-8") as f:
         metrics = json.load(f)
     with open(readme_path, encoding="utf-8") as f:
-        readme_text = f.read()
+        lines = f.readlines()
 
     holdout = metrics["holdout_evaluation"]
-    top1 = holdout["top1_accuracy"]
-    top3 = holdout["top3_accuracy"]
-    f1 = holdout["macro_f1"]
-    ece = holdout["expected_calibration_error"]
-    sc_top1 = metrics["masked_input_evaluations"]["soil_and_crop_only"]["top1_accuracy"]
+    top1_str = f"${holdout['top1_accuracy'] * 100:.2f}\\%$"
+    top3_str = f"${holdout['top3_accuracy'] * 100:.2f}\\%$"
+    f1_str = f"${holdout['macro_f1']:.4f}$"
+    ece_str = f"${holdout['expected_calibration_error']:.4f}$"
+    sc_top1_pct = (
+        f"{metrics['masked_input_evaluations']['soil_and_crop_only']['top1_accuracy'] * 100:.2f}%"
+    )
 
-    top1_str = f"{top1 * 100:.2f}%"
-    top3_str = f"{top3 * 100:.2f}%"
-    f1_str = f"{f1:.4f}"
-    ece_str = f"{ece:.4f}"
-    sc_top1_str = f"{sc_top1 * 100:.2f}%"
+    # 1. Labelled line for Top-1
+    top1_line = next((line for line in lines if "- **Top-1 Accuracy**:" in line), None)
+    assert top1_line is not None and top1_str in top1_line, (
+        f"Top-1 {top1_str} not in labelled line: {top1_line}"
+    )
 
-    assert top1_str in readme_text, f"Top-1 {top1_str} not found in README.md"
-    assert top3_str in readme_text, f"Top-3 {top3_str} not found in README.md"
-    assert f1_str in readme_text, f"Macro-F1 {f1_str} not found in README.md"
-    assert ece_str in readme_text, f"ECE {ece_str} not found in README.md"
-    assert sc_top1_str in readme_text, f"Soil+Crop Top-1 {sc_top1_str} not found in README.md"
+    # 2. Labelled line for Top-3
+    top3_line = next((line for line in lines if "- **Top-3 Accuracy**:" in line), None)
+    assert top3_line is not None and top3_str in top3_line, (
+        f"Top-3 {top3_str} not in labelled line: {top3_line}"
+    )
+
+    # 3. Labelled line for Macro-F1
+    f1_line = next((line for line in lines if "- **Macro-F1**:" in line), None)
+    assert f1_line is not None and f1_str in f1_line, (
+        f"Macro-F1 {f1_str} not in labelled line: {f1_line}"
+    )
+
+    # 4. Labelled line for ECE
+    ece_line = next(
+        (line for line in lines if "- **Expected Calibration Error (ECE)**:" in line), None
+    )
+    assert ece_line is not None and ece_str in ece_line, (
+        f"ECE {ece_str} not in labelled line: {ece_line}"
+    )
+
+    # 5. Table row for Soil+Crop Top-1 under Method A ablation
+    sc_ablation_line = next((line for line in lines if "| **Soil + Crop** |" in line), None)
+    assert sc_ablation_line is not None and sc_top1_pct in sc_ablation_line, (
+        f"Soil+Crop Top-1 {sc_top1_pct} not in ablation row: {sc_ablation_line}"
+    )
+
+
+def test_cross_document_ablation_and_lofo_consistency():
+    """Quality Gate: Asserts ablation and LOFO figures are identical across README, MODEL_CARD, and DATA_CARD."""
+    metrics_path = Path("model_files/metrics.json")
+    with open(metrics_path, encoding="utf-8") as f:
+        metrics = json.load(f)
+
+    doc_paths = [
+        Path("README.md"),
+        Path("docs/MODEL_CARD.md"),
+        Path("docs/DATA_CARD.md"),
+    ]
+
+    doc_texts = {}
+    for p in doc_paths:
+        assert p.exists(), f"Doc missing: {p}"
+        with open(p, encoding="utf-8") as f:
+            doc_texts[p.name] = f.read()
+
+    # 1. Method A & B Top-1 / Top-3 for all 4 subsets
+    ablation_table = metrics.get("ablation_table", [])
+    assert len(ablation_table) == 4, "Ablation table must have 4 subsets"
+
+    for row in ablation_table:
+        name = row["subset_name"]
+        a_top1 = f"{row['method_a_deployed_imputed']['top1_accuracy'] * 100:.2f}%"
+        a_top3 = f"{row['method_a_deployed_imputed']['top3_accuracy'] * 100:.2f}%"
+        b_top1 = f"{row['method_b_retrained_subset']['top1_accuracy'] * 100:.2f}%"
+        b_top3 = f"{row['method_b_retrained_subset']['top3_accuracy'] * 100:.2f}%"
+
+        for doc_name, text in doc_texts.items():
+            matching_lines = [line for line in text.splitlines() if f"**{name}**" in line]
+            assert len(matching_lines) >= 1, f"Subset row for {name} missing in {doc_name}"
+            row_line = matching_lines[0]
+            assert a_top1 in row_line, f"Method A Top-1 {a_top1} missing in {doc_name} for {name}"
+            assert a_top3 in row_line, f"Method A Top-3 {a_top3} missing in {doc_name} for {name}"
+            assert b_top1 in row_line, f"Method B Top-1 {b_top1} missing in {doc_name} for {name}"
+            assert b_top3 in row_line, f"Method B Top-3 {b_top3} missing in {doc_name} for {name}"
+
+    # 2. LOFO phosphorus and carbon drops
+    lofo = metrics.get("lofo_ablation", {})
+    p_drop = lofo["Phosphorous"]["accuracy_drop"] * 100
+    p_drop_str = f"+{p_drop:.2f}\\%"
+
+    c_drop = lofo["Carbon"]["accuracy_drop"] * 100
+    c_drop_str = f"+{c_drop:.2f}\\%"
+
+    for doc_name, text in doc_texts.items():
+        assert "<!-- BEGIN:lofo_table -->" in text, f"lofo_table marker missing in {doc_name}"
+        lofo_block = text.split("<!-- BEGIN:lofo_table -->")[1].split("<!-- END:lofo_table -->")[0]
+
+        # Check Phosphorous LOFO row
+        p_lines = [line for line in lofo_block.splitlines() if "| **Phosphorous** |" in line]
+        assert len(p_lines) == 1, f"Phosphorous LOFO row missing or duplicated in {doc_name}"
+        assert p_drop_str in p_lines[0], (
+            f"Phosphorous LOFO drop {p_drop_str} missing in {doc_name}: {p_lines[0]}"
+        )
+
+        # Check Carbon LOFO row
+        c_lines = [line for line in lofo_block.splitlines() if "| **Carbon** |" in line]
+        assert len(c_lines) == 1, f"Carbon LOFO row missing or duplicated in {doc_name}"
+        assert c_drop_str in c_lines[0], (
+            f"Carbon LOFO drop {c_drop_str} missing in {doc_name}: {c_lines[0]}"
+        )
