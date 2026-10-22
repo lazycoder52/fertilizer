@@ -6,7 +6,7 @@
 - **Dataset Framing**: **Synthetic benchmark dataset** with rule-generated target boundaries.
 - **Model Selection Rationale & Trade-off**:
   Across evaluated architectures, high clean-input accuracy stems from learning the synthetic rule partitions, while robustness under missing inputs comes strictly from **feature mask augmentation**, not from model architecture. TreeSHAP attribution is natively supported across tree models including LightGBM and Decision Trees.
-  When continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with extreme overconfidence (mean confidence $96.7\% - 100\%$, ECE $> 0.74$).
+  When continuous inputs are omitted, unmasked tree models (Decision Tree, LightGBM, Random Forest Default, Random Forest Tuned) collapse to $21.77\%$ Top-1 accuracy with extreme over-confidence (mean confidence $96.73\% - 100.00\%$, ECE $> 0.74$). Across all evaluated unmasked candidates (including Logistic Regression at $19.35\%$ accuracy / $38.15\%$ confidence and the Zero-Rule baseline at $34.03\%$ accuracy / $100.00\%$ confidence), every unmasked model is over-confident (mean confidence > accuracy).
   When trained with 35% feature masking:
   - **Masked LightGBM** achieves **$49.84\%$ Top-1** ($84.19\%$ Top-3, ECE $0.0352$).
   - **Masked Decision Tree** achieves **$48.87\%$ Top-1** ($82.26\%$ Top-3, ECE $0.0623$).
@@ -112,7 +112,7 @@ The reliability diagram below plots mean predicted confidence against empirical 
 > On clean inputs, the production model is **under-confident**: its mean predicted top-1 confidence is **$86.62\%$**, while its actual empirical accuracy is **$98.71\%$**. This conservative gap of $\sim 12\%$ accounts for the Expected Calibration Error of $\text{ECE} = 0.1209$.
 >
 > **Over-Confidence of Unmasked Models on Missing Inputs**:
-> When soil test parameters are omitted, unmasked models suffer severe overconfidence breakdown: their accuracy collapses to $21.77\%$, but they continue to output $96.7\% - 100\%$ confidence ($\text{ECE} \approx 0.75 - 0.78$). Masked training successfully prevents false certainty by tempering confidence to $44.90\%$ ($\text{ECE} = 0.0593$).
+> When soil test parameters are omitted, all unmasked candidates exhibit over-confidence (mean confidence > accuracy). For unmasked tree models, accuracy collapses to $21.77\%$ while outputting $96.73\% - 100.00\%$ confidence ($\text{ECE} = 0.7496 - 0.7823$). Other unmasked models similarly exceed empirical accuracy (Logistic Regression outputs $38.15\%$ confidence on $19.35\%$ accuracy with $\text{ECE} = 0.1880$, and Zero-Rule outputs $100.00\%$ confidence on $34.03\%$ accuracy with $\text{ECE} = 0.6597$). Masked training successfully prevents false certainty by tempering confidence to $44.90\%$ ($\text{ECE} = 0.0593$).
 
 ---
 
