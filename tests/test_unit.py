@@ -20,7 +20,7 @@ class TestSchemas:
     """Test suite for Pydantic v2 schemas."""
 
     def test_valid_full_request(self):
-        """Test full payload with all sensors provided."""
+        """Test full payload with all soil test values provided."""
         payload = {
             "Soil": "Loamy Soil",
             "Crop": "Wheat",
@@ -194,6 +194,9 @@ class TestServices:
         assert "recommendation" in res
         assert "confidence" in res
         assert res["confidence"] > 0
+        assert res["is_imputed"] is False
+        assert len(res["imputed_fields"]) == 0
+        assert res["warning"] is None
         assert len(res["top_3_recommendations"]) == 3
         assert "explanation" in res
         assert res["explanation"]["enabled"] is True
@@ -208,6 +211,10 @@ class TestServices:
         )
         assert res["success"] is True
         assert "recommendation" in res
+        assert res["is_imputed"] is True
+        assert len(res["imputed_fields"]) == 8
+        assert res["warning"] is not None
+        assert "Low confidence" in res["warning"]
         assert "explanation" in res
 
     def test_model_service_invalid_soil_crop(self):

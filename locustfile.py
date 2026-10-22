@@ -3,7 +3,7 @@
 Simulates concurrent agronomic user requests, including:
 - Web UI visits
 - Health & Model Info queries
-- Full ML inference with all sensor values
+- Full ML inference with all user-provided soil test values
 - Partial ML inference requiring feature imputation
 - On-demand TreeSHAP explainability queries
 """
@@ -34,7 +34,7 @@ class FertilizerUser(HttpUser):
 
     @task(5)
     def predict_full_payload(self):
-        """Simulate full agronomic sensor payload prediction."""
+        """Simulate full soil test parameter payload prediction."""
         payload = {
             "Soil": random.choice(self.SOILS),
             "Crop": random.choice(self.CROPS),
@@ -50,7 +50,7 @@ class FertilizerUser(HttpUser):
         with self.client.post(
             "/api/v1/predict",
             json=payload,
-            name="[API] Predict (Full Sensors)",
+            name="[API] Predict (Full Soil Test)",
             catch_response=True,
         ) as resp:
             if resp.status_code == 200 and resp.json().get("success"):
