@@ -19,9 +19,7 @@ class PredictRequest(BaseModel):
     )
     Moisture: float | None = Field(
         default=None,
-        ge=0.0,
-        le=1.0,
-        description="Soil moisture ratio (0.0 to 1.0)",
+        description="Soil moisture fraction (0.0 to 1.0) or percentage (0% to 100%)",
     )
     Rainfall: float | None = Field(
         default=None,
@@ -59,6 +57,26 @@ class PredictRequest(BaseModel):
         le=10.0,
         description="Soil organic carbon percentage (0 to 10%)",
     )
+
+    @field_validator("Moisture", mode="before")
+    @classmethod
+    def normalize_moisture(cls, v: Any) -> float | None:
+        if v is None or v == "":
+            return None
+        try:
+            val = float(v)
+        except (ValueError, TypeError):
+            raise ValueError("Moisture must be a numeric value") from None
+
+        if val < 0.0 or val > 100.0:
+            raise ValueError(
+                "Moisture must be a fraction between 0.0 and 1.0 (e.g., 0.60) "
+                "or a percentage between 0% and 100% (e.g., 60)."
+            )
+        # If entered as a percentage > 1.0, convert to fraction [0.0, 1.0]
+        if val > 1.0:
+            return val / 100.0
+        return val
 
     @field_validator("Soil", "Crop")
     @classmethod

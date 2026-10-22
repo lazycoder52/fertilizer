@@ -4,12 +4,12 @@
 
 - **Model Architecture**: Ensemble Random Forest Classifier (`RandomForestClassifier`)
 - **Dataset Framing**: **Synthetic benchmark dataset** with rule-generated target boundaries.
-- **Model Selection Rationale**: On the development split, Decision Tree ($99.35\% \pm 0.35\%$), Random Forest ($99.27\% \pm 0.35\%$), and LightGBM ($99.11\% \pm 0.37\%$) perform within noise of each other due to rectangular decision boundaries. Random Forest was selected not under a claim of "beating" other tree algorithms, but for **variance reduction, probability calibration stability, and native, high-throughput TreeSHAP explainability support**.
+- **Model Selection Rationale & Trade-off**: On the clean development split, Decision Tree ($99.35\% \pm 0.35\%$), Random Forest ($99.27\% \pm 0.35\%$), and LightGBM ($99.11\% \pm 0.37\%$) perform similarly due to synthetic rectangular boundaries. Random Forest was selected for **native, fast TreeSHAP explainability support** and **robustness to missing user inputs via feature masking**. When all continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with extreme overconfidence (ECE $> 0.74$, average confidence $> 96\%$). In contrast, the masked Random Forest maintains **$46.29\%$ Top-1** ($79.84\%$ Top-3) and appropriately tempers its confidence to $44.90\%$ (ECE $0.0593$). The acknowledged trade-off is slightly lower clean-input macro-F1 ($0.9431$ vs $0.9756$) and higher clean-input ECE ($0.1209$ vs $0.0065$).
 - **Hyperparameter Optimization**: Optuna Bayesian TPE executed **strictly on the 80% development split** ($N=2,480$) with 5-fold Stratified Cross-Validation. The holdout set ($N=620$) remained untouched.
 - **Uncertainty & Masking Retraining**: Retrained with 35% random feature masking using development distribution medians, ensuring probability distributions naturally temper under missing inputs rather than outputting false certainty.
 - **Production Artifact**: `model_files/model.joblib` (Compressed, ~600 KB)
 - **Input Dimension**: 10 tabular agronomic parameters (8 numerical soil/environmental test values, 2 categorical)
-- **Output Dimension**: 10 target fertilizer classes with calibrated probabilities and Top-3 ranking
+- **Output Dimension**: 10 target fertilizer classes with Top-3 probability ranking and missing-feature uncertainty flagging
 - **Explainability Engine**: Fast TreeSHAP (`shap.TreeExplainer`) for real-time feature attribution
 
 ---
@@ -31,15 +31,22 @@
 
 ## 3. Evaluation Benchmarks & Baseline Comparison (Development Split)
 
-Baseline algorithms were evaluated on the **Development split ($N=2,480$)** using **5-fold Stratified Cross-Validation**, reporting mean $\pm$ standard deviation:
+Baseline algorithms were evaluated on the **Development split ($N=2,480$)** using **5-fold Stratified Cross-Validation**, reporting mean $\pm$ standard deviation, alongside missing-input evaluation (Soil & Crop only) on the Holdout split ($N=620$):
 
-| Model Candidate | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Brier Score | ECE | Train Time ($s$) |
+| Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | 5-Fold CV ECE | Missing-Input Top-1 (Soil+Crop Only) | Missing-Input ECE (Overconfidence Risk) | Train Time ($s$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $60.73\% \pm 0.15\%$ | $0.0507 \pm 0.000$ | $1.3202 \pm 0.002$ | $0.6601 \pm 0.001$ | $0.02\text{s}$ |
-| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $98.15\% \pm 0.50\%$ | $0.6781 \pm 0.026$ | $0.2962 \pm 0.010$ | $0.0682 \pm 0.006$ | $0.15\text{s}$ |
-| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $99.56\% \pm 0.24\%$ | $0.9756 \pm 0.016$ | $0.0129 \pm 0.007$ | $0.0065 \pm 0.003$ | $0.06\text{s}$ |
-| **Random Forest (Default, 100 trees)** | $99.27\% \pm 0.35\%$ | $100.0\% \pm 0.00\%$ | $0.9743 \pm 0.011$ | $0.0310 \pm 0.003$ | $0.0804 \pm 0.004$ | $1.61\text{s}$ |
-| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $99.92\% \pm 0.16\%$ | $0.9786 \pm 0.016$ | $0.0173 \pm 0.008$ | $0.0093 \pm 0.005$ | $3.59\text{s}$ |
+| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507 \pm 0.000$ | $0.6601$ | $19.35\%$ | $0.6601$ (Avg Conf: $100\%$) | $0.02\text{s}$ |
+| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $0.6781 \pm 0.026$ | $0.0682$ | $19.35\%$ | $0.1880$ (Avg Conf: $38.2\%$) | $0.15\text{s}$ |
+| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $0.9756 \pm 0.016$ | $0.0065$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $0.06\text{s}$ |
+| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $0.9786 \pm 0.016$ | $0.0093$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $3.59\text{s}$ |
+| **Random Forest (Default Clean)** | $99.27\% \pm 0.35\%$ | $0.9743 \pm 0.011$ | $0.0804$ | $21.77\%$ | $0.7449$ (Avg Conf: $96.3\%$) | $1.61\text{s}$ |
+| **Random Forest (Tuned Clean, 75 trees)** | $99.31\% \pm 0.27\%$ | $0.9779 \pm 0.007$ | $0.0851$ | $21.77\%$ | $0.7457$ (Avg Conf: $96.4\%$) | $1.42\text{s}$ |
+| **Random Forest (Tuned + 35% Masking, Production)** | **$98.75\% \pm 0.39\%$** | **$0.9517 \pm 0.012$** | **$0.1345$** | **$46.29\%$** | **$0.0593$** (Avg Conf: **$44.9\%$**) | $2.15\text{s}$ |
+
+> [!NOTE]
+> **Expected Calibration Error (ECE) Definition**: Computed as top-label multi-class ECE partitioned into $M=10$ equal-width confidence bins in $[0, 1]$:
+> $$\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} |\text{acc}(B_m) - \text{conf}(B_m)|$$
+> Notice that while clean-input Decision Tree and LightGBM have near-zero ECE on clean inputs, they are catastrophically overconfident ($100\%$ confidence on $21.8\%$ accuracy) when inputs are omitted. The masked Random Forest is the only candidate that gracefully degrades confidence.
 
 ### Hyperparameters (Selected via Optuna on Dev Split)
 - `n_estimators`: `75`
