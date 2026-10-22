@@ -1,38 +1,58 @@
-# Production-Grade Fertilizer Recommendation System
+# Fertilizer Recommendation Service: ML + REST API
 
 [![CI Pipeline](https://github.com/lazycoder52/fertilizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lazycoder52/fertilizer/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-89.18%25-brightgreen.svg)](https://github.com/lazycoder52/fertilizer)
-[![Python Version](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Security Audit](https://img.shields.io/badge/Security-pip--audit%20Passed-success.svg)](https://pypi.org/project/pip-audit/)
+[![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Docker](https://img.shields.io/badge/Docker-Verified%20in%20CI-2496ED.svg?logo=docker&logoColor=white)](Dockerfile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An enterprise-ready, machine-learning-powered fertilizer recommendation system engineered with agronomic rigor, TreeSHAP explainability, Pydantic v2 input contracts, lean multi-stage Docker containerization, and automated CI quality gates.
+A machine learning service and REST API for agronomic fertilizer recommendation, featuring TreeSHAP explainability, Pydantic v2 input contracts, lean multi-stage Docker containerization, and automated CI quality gates.
+
+---
+
+### 🌐 Live Deployment & Documentation
+
+- **Live Web Application**: [fertilizer-recommendation-1e6z.onrender.com](https://fertilizer-recommendation-1e6z.onrender.com)
+- **Interactive OpenAPI / Swagger Documentation**: [fertilizer-recommendation-1e6z.onrender.com/apidocs/](https://fertilizer-recommendation-1e6z.onrender.com/apidocs/)
 
 > [!NOTE]
-> **Dataset Provenance & Framing**: The model is trained and evaluated on a **synthetic benchmark dataset** (`fertilizer_recommendation_dataset.csv`). As revealed during the empirical data audit, the dataset features rule-generated rectangular decision boundaries. High accuracy scores reflect the model learning these underlying deterministic partitions rather than human biological complexity. See the [Data Card](docs/DATA_CARD.md) and [Model Card](docs/MODEL_CARD.md) for full audit documentation.
+> **Free Tier Cold Start**: Hosted on Render's free tier. If the service has been inactive, the container spins down to conserve resources and may take **30–60 seconds to spin up** on the initial request.
+
+---
+
+### 🔍 Real-Time TreeSHAP Feature Attribution
+
+Every recommendation is accompanied by local Shapley attributions computed via fast TreeSHAP, revealing the precise positive and negative nutrient drivers behind the output:
+
+![TreeSHAP Feature Attribution](docs/images/shap_waterfall_preview.svg)
+
+---
+
+## ⚠️ Limitations & Project Scope
+
+1. **Synthetic Benchmark Dataset**: The model was trained and evaluated on a synthetic benchmark dataset (`fertilizer_recommendation_dataset.csv`). As documented in the [Data Audit](docs/DATA_CARD.md), the dataset contains synthetic generation artifacts (negative values in rainfall and phosphorus, 1-to-1 correspondence between the `Remark` column and labels, and axis-aligned rectangular decision boundaries). High model accuracy reflects the algorithm learning these deterministic partitions rather than natural biological variance.
+2. **Formulation Only (No Dosage or Schedule)**: The model predicts **which** fertilizer formulation suits the crop and soil nutrient balance (e.g., DAP for phosphorus deficiency, Muriate of Potash for potassium deficit, or Urea for leafy growth). It does **NOT** calculate quantitative volumetric dosage ($\text{kg/ha}$ or $\text{lbs/acre}$) or seasonal application schedules across crop growth stages.
+3. **No Field Trial Validation**: Predictions are advisory decision-support tools and have not been validated in biological field trials. They should not substitute for wet-chemistry laboratory soil testing and regional extension guidelines.
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The application is structured into decoupled modules following clean architecture and production ML patterns:
+The application is structured into decoupled modules following clean architecture and production ML engineering patterns:
 
 ```mermaid
 graph TD
     User([Agronomist / Farmer Browser]) -->|HTTP / REST| Ingress[Reverse Proxy / Cloud Ingress]
     Ingress -->|Port 5000| Flask[Flask 3.1 App Factory]
     
-    subgraph Middleware & Security
+    subgraph Middleware & Validation
         Flask --> Limiter[Flask-Limiter\n60 req/min predict]
         Flask --> Logger[Structured JSON Logger\nRequest ID Tracing]
-        Flask --> Pydantic[Pydantic v2 Contracts\nAgronomic Physical Bounds]
+        Flask --> Pydantic[Pydantic v2 Contracts\nPhysical Bounds & Auto-Conversion]
     end
     
     subgraph Domain Services Singleton
         Pydantic --> ModelService[ModelService Singleton]
-        ModelService --> Joblib[Optimized Joblib Model\nRandom Forest 75 Trees, Depth 13]
+        ModelService --> Joblib[Tuned Random Forest\n75 Trees, Depth 13]
         ModelService --> TreeSHAP[TreeSHAP Explainer\nReal-Time Local Attribution]
         ModelService --> Imputer[Benchmark Median Imputer\n+ Low-Confidence Warning]
     end
@@ -49,67 +69,68 @@ graph TD
 
 ---
 
-## ⚡ Key Highlights & ML Rigor
+## ⚡ Key Highlights & Engineering Rigor
 
 - **Empirical Data Audit as an ML Signal**:
-  - Identified data flaws in the raw benchmark: negative physical values (minimum rainfall $-85.7\text{ mm}$, minimum phosphorus $-37.6\text{ kg/ha}$), 1-to-1 deterministic correspondence between `Remark` and target classes, and sharp rectangular boundaries.
-  - **Zero Target Leakage Verified**: `Remark` is strictly excluded from feature vectors during training and inference (`assert "Remark" not in feature_cols`).
+  - Uncovered raw benchmark flaws: negative physical values (rainfall $-85.7\text{ mm}$, phosphorus $-37.6\text{ kg/ha}$), 1-to-1 deterministic correspondence between `Remark` and target classes, and sharp rectangular boundaries.
+  - **Zero Target Leakage Verified**: `Remark` and target are strictly excluded from input vectors (`assert "Remark" not in feature_cols`).
   - Added Pydantic v2 boundary enforcement to reject unphysical inputs at the API gateway.
-- **Realistic Model Selection & Evaluation**:
-  - Tuning (Optuna) and baseline cross-validation were conducted **strictly on the isolated 80% development split** ($N=2,480$).
-  - Decision Tree ($99.35\% \pm 0.35\%$), Random Forest ($99.27\% \pm 0.35\%$), and LightGBM ($99.11\% \pm 0.37\%$) perform within noise of each other. Random Forest was selected not under a claim of "beating" other tree models, but for **variance reduction, probability calibration stability, and native TreeSHAP explainability support**.
+- **Honest Model Selection Trade-off**:
+  - Chose Random Forest for **native, fast TreeSHAP explainability support** and **missing-input robustness via feature masking**, accepting the explicit trade-off of lower clean-input macro-F1 ($0.9431$ vs $0.9756$) and higher clean-input ECE ($0.1209$ vs $0.0065$).
+  - When continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with $100\%$ overconfidence (ECE $> 0.74$). In contrast, the masked Random Forest retains **$46.29\%$ Top-1** ($79.84\%$ Top-3) and tempers confidence to $44.90\%$ (ECE $0.0593$).
 - **Evaluated on Strict Untouched Holdout ($N=620$)**:
   - Top-1 Accuracy: **$98.71\%$** | Top-3 Accuracy: **$100.00\%$** | Macro-F1: **$0.9431$** | Brier Score: **$0.0552$** | Expected Calibration Error (ECE): **$0.1209$**.
-- **Uncertainty & Calibration Under Missing Inputs**:
-  - Retrained with 35% random feature masking using development medians so the model outputs tempered probabilities (~45% confidence) when inputs are omitted.
-  - Returns a visible **"Low confidence: using default values for missing soil test parameters"** notice in the UI and API response whenever defaults are used.
+- **Flexible Input Handling**:
+  - Soil moisture accepts both decimal fractions (`0.0 - 1.0`, e.g., `0.60`) and percentages (`0% - 100%`, e.g., `60`), automatically converting percentages to fractions at the Pydantic boundary.
+  - Displays a visible **"Low confidence: using default benchmark values for omitted soil test parameters"** warning in the UI and API whenever defaults are used.
 - **Finer Input Ablation & Sensitivity Analysis**:
-  - Soil & Crop alone achieves only **$48.39\%$ Top-1** ($82.58\%$ Top-3).
-  - NPK nutrients achieve **$75.16\%$ Top-1** ($96.29\%$ Top-3).
+  - Soil & Crop alone achieves **$46.29\%$ Top-1** ($79.84\%$ Top-3).
+  - NPK nutrients achieve **$75.16\%$ Top-1** ($96.94\%$ Top-3).
   - Minimal high-confidence 6-feature suite (Soil, Crop, Phosphorus, Potassium, pH, Carbon) achieves **$86.77\%$ Top-1** ($98.06\%$ Top-3).
-  - Full soil test suite (10 features) reaches **$98.71\%$ Top-1** ($100.0\%$ Top-3).
-  - Leave-One-Feature-Out (LOFO) and Permutation Importance identify Phosphorus as the single most critical nutrient (omitting it drops accuracy by $17.58\%$).
-- **Real-Time TreeSHAP Explainability**: Returns exact Shapley feature attributions via `/api/v1/explain` and visualizes them on the frontend "Why this?" panel.
-- **Lean Runtime & Verified Containerization**: Production runtime dependencies (`requirements.txt`) are split from heavy training/dev dependencies (`requirements-dev.txt`), reducing image size and cold start. GitHub Actions verifies `docker build` and container healthcheck probe on every PR.
-- **Defensible Load Testing**: Tested with 50 concurrent virtual users under Locust; rate limiter bypassed via `--no-limiter` during benchmarking to measure raw server capacity without artificial 429 single-IP throttling.
+  - Leave-One-Feature-Out (LOFO) ablation identifies Phosphorus as the most critical nutrient (omitting it drops accuracy by $16.45\%$).
+- **Lean Runtime & Verified Containerization**: Production runtime dependencies (`requirements.txt`) are split from heavy training/dev dependencies (`requirements-dev.txt`), reducing image size. Multi-stage Docker build and container healthcheck are verified on every push in CI.
+- **CI Quality Gate**: [`tests/test_model_quality.py`](tests/test_model_quality.py) runs on every push and PR, dynamically evaluating the saved binary against the holdout set to enforce $\text{Top-1} \ge 95\%$, $\text{Top-3} \ge 99\%$, and $\text{Macro-F1} \ge 0.90$.
 
 ---
 
 ## 📊 Model Evaluation & Baseline Comparison (Development Split)
 
-Evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$), reported as mean $\pm$ standard deviation:
+Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$), reported as mean $\pm$ standard deviation, alongside missing-input evaluation (Soil & Crop only) on the Holdout split ($N=620$):
 
-| Model Candidate | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Brier Score | ECE | Train Time |
+| Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | 5-Fold CV ECE | Missing-Input Top-1 (Soil+Crop Only) | Missing-Input ECE (Overconfidence Risk) | Train Time ($s$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $60.73\% \pm 0.15\%$ | $0.0507 \pm 0.000$ | $1.3202 \pm 0.002$ | $0.6601$ | $0.02\text{s}$ |
-| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $98.15\% \pm 0.50\%$ | $0.6781 \pm 0.026$ | $0.2962 \pm 0.010$ | $0.0682$ | $0.15\text{s}$ |
-| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $99.56\% \pm 0.24\%$ | $0.9756 \pm 0.016$ | $0.0129 \pm 0.007$ | $0.0065$ | $0.06\text{s}$ |
-| **Random Forest (Default, 100 trees)** | $99.27\% \pm 0.35\%$ | $100.0\% \pm 0.00\%$ | $0.9743 \pm 0.011$ | $0.0310 \pm 0.003$ | $0.0804$ | $1.61\text{s}$ |
-| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $99.92\% \pm 0.16\%$ | $0.9786 \pm 0.016$ | $0.0173 \pm 0.008$ | $0.0093$ | $3.59\text{s}$ |
-| **Optuna Tuned RF (Selected Model)** | **$98.71\%$ (Holdout)** | **$100.0\%$ (Holdout)** | **$0.9431$** | **$0.0552$** | **$0.1209$** | $1.42\text{s}$ |
+| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507 \pm 0.000$ | $0.6601$ | $19.35\%$ | $0.6601$ (Avg Conf: $100\%$) | $0.02\text{s}$ |
+| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $0.6781 \pm 0.026$ | $0.0682$ | $19.35\%$ | $0.1880$ (Avg Conf: $38.2\%$) | $0.15\text{s}$ |
+| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $0.9756 \pm 0.016$ | $0.0065$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $0.06\text{s}$ |
+| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $0.9786 \pm 0.016$ | $0.0093$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $3.59\text{s}$ |
+| **Random Forest (Default Clean)** | $99.27\% \pm 0.35\%$ | $0.9743 \pm 0.011$ | $0.0804$ | $21.77\%$ | $0.7449$ (Avg Conf: $96.3\%$) | $1.61\text{s}$ |
+| **Random Forest (Tuned Clean, 75 trees)** | $99.31\% \pm 0.27\%$ | $0.9779 \pm 0.007$ | $0.0851$ | $21.77\%$ | $0.7457$ (Avg Conf: $96.4\%$) | $1.42\text{s}$ |
+| **Random Forest (Tuned + 35% Masking, Production)** | **$98.75\% \pm 0.39\%$** | **$0.9517 \pm 0.012$** | **$0.1345$** | **$46.29\%$** | **$0.0593$** (Avg Conf: **$44.9\%$**) | $2.15\text{s}$ |
+
+### Holdout Evaluation on Untouched Test Set ($N=620$, never seen during tuning or training)
+- **Top-1 Accuracy**: **$98.71\%$**
+- **Top-3 Accuracy**: **$100.00\%$**
+- **Macro-F1**: **$0.9431$**
+- **Brier Score**: **$0.0552$**
+- **Expected Calibration Error (ECE)**: **$0.1209$**
+- **Mean Top-Class Confidence**: **$86.62\%$**
 
 > [!NOTE]
-> Detailed per-class precision/recall, calibration curves, Permutation Importance, and LOFO sensitivity tables are documented in the [Model Card](docs/MODEL_CARD.md).
+> **Expected Calibration Error (ECE) Definition**:
+> Top-label Expected Calibration Error partitioned into $M=10$ equal-width bins spanning $[0, 1]$:
+> $$\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} |\text{acc}(B_m) - \text{conf}(B_m)|$$
+> Unmasked models achieve near-zero ECE on clean synthetic inputs because boundary partitions are rectangular. However, on omitted inputs, unmasked models exhibit severe calibration breakdown (ECE $> 0.74$), outputting $100\%$ confidence on incorrect predictions. The masked forest tempers confidence down to $44.9\%$, avoiding false certainty.
 
 ---
 
-## 🚀 Performance & Locust Load Testing (50 Concurrent Users)
+## 🚀 Performance & Load Testing Architecture
 
-Empirical benchmark executed via [locustfile.py](locustfile.py) under 50 concurrent virtual users simulating mixed agronomic traffic.
+Load tests simulate concurrent agricultural field queries via [locustfile.py](locustfile.py).
 
-> **Test Configuration & Rate Limit Context**:
-> - Environment: Local development server (Windows, single Python process, `--no-limiter`). Under production Gunicorn (3 workers, 2 threads per worker on Linux/Docker container), requests are multiplexed across pre-forked worker pools.
-> - Rate Limiting: The production 60 req/min rate limiter was disabled (`--no-limiter` / `RATELIMIT_ENABLED=0`) for the benchmark run to evaluate underlying server and model throughput without artificial 429 throttling from a single loopback IP.
-
-| Endpoint / Scenario | Requests | Failures | Median ($p50$) | $p90$ | $p95$ | $p99$ | Throughput |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `GET /api/v1/health` | 19 | $0.00\%$ | 2,100 ms | 2,100 ms | 2,100 ms | 2,100 ms | 0.97 req/s |
-| `GET /api/v1/info` | 19 | $0.00\%$ | 2,000 ms | 2,100 ms | 2,100 ms | 2,100 ms | 0.97 req/s |
-| `GET /` (Web Interface) | 48 | $0.00\%$ | 2,000 ms | 2,100 ms | 2,100 ms | 2,100 ms | 2.45 req/s |
-| `POST /api/v1/predict` (Full Soil Test) | 88 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,400 ms | 2,500 ms | 4.50 req/s |
-| `POST /api/v1/predict` (Partial / Imputed) | 44 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,500 ms | 2,500 ms | 2.25 req/s |
-| `POST /api/v1/explain` (TreeSHAP) | 26 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,400 ms | 2,500 ms | 1.33 req/s |
-| **Aggregated Total** | **244** | **0.00%** | **2,100 ms** | **2,400 ms** | **2,400 ms** | **2,500 ms** | **12.47 req/s** |
+### Local Single-Process vs Production Gunicorn Execution
+- **Local Dev Server (Test Artifact)**: Running `python app.py` on a local machine uses Flask's single-process development server. At 50 concurrent simulated users, single-process execution causes artificial request queuing (median $\sim 2,100\text{ ms}$), reflecting queuing delay rather than model compute time.
+- **Production Setup (Multi-Worker Container)**: In production (Render / Docker), the application is served by Gunicorn running multiple pre-forked workers and threads (`gunicorn -w 4 -k gthread --threads 2 app:app`), multiplexing requests concurrently across CPU cores.
+- **Automated CI Load Testing**: The GitHub Actions CI pipeline includes an automated Locust benchmark that runs headless against the production Docker container running Gunicorn for 30 seconds under 30 concurrent users, uploading CSV and HTML performance summaries directly to build artifacts.
 
 ---
 
@@ -137,13 +158,13 @@ The application will be live at `http://localhost:5000` with OpenAPI documentati
 python -m venv myenv
 source myenv/bin/activate  # On Windows: .\myenv\Scripts\activate
 
-# 2. Install lean runtime dependencies (or requirements-dev.txt for training/testing)
+# 2. Install dependencies (requirements-dev.txt includes test & dev tools)
 pip install -r requirements-dev.txt
 
-# 3. Run test suite and verify CI quality gates (evaluates model.joblib against test_data.joblib)
+# 3. Run test suite with Model Quality Gate & 80% coverage check
 pytest -v --cov=src/fertilizer_app --cov-report=term-missing --cov-fail-under=80
 
-# 4. Start local server
+# 4. Start local development server
 python app.py
 ```
 
@@ -154,10 +175,12 @@ python app.py
 ```
 fertilizer-app/
 ├── .github/workflows/
-│   └── ci.yml                     # Automated CI: Ruff, pip-audit, Pytest, Docker Build & Healthcheck
+│   └── ci.yml                     # Automated CI: Ruff, pip-audit, Pytest, Docker, and Locust load testing
 ├── config/
 │   └── train_config.yaml          # Model training, Optuna, and ablation configuration
 ├── docs/
+│   ├── images/
+│   │   └── shap_waterfall_preview.svg # Vector visual of TreeSHAP attribution panel
 │   ├── DATA_CARD.md               # Empirical data audit, synthetic artifacts, agronomic limitations
 │   └── MODEL_CARD.md              # Model architecture, baseline comparisons, LOFO ablation, calibration
 ├── model_files/
@@ -174,7 +197,7 @@ fertilizer-app/
 │   │   ├── api/
 │   │   │   ├── v1/
 │   │   │   │   ├── routes.py      # Versioned API routes & rate limiting
-│   │   │   │   └── schemas.py     # Pydantic v2 validation contracts & imputation warning
+│   │   │   │   └── schemas.py     # Pydantic v2 validation contracts & moisture percentage conversion
 │   │   │   └── web.py             # Frontend web routes
 │   │   ├── core/
 │   │   │   ├── config.py          # Application configuration
@@ -189,12 +212,13 @@ fertilizer-app/
 ├── templates/
 │   └── index.html                 # Modern glassmorphism UI with imputation warning banner & SHAP bars
 ├── tests/
-│   ├── test_api_v1.py             # API route tests, validation bounds, imputation checks
+│   ├── test_api_v1.py             # API route tests, validation bounds, moisture auto-conversion
 │   ├── test_model_quality.py      # CI Quality Gate: tests model.joblib against test_data.joblib
 │   └── test_unit.py               # Unit tests for schemas, services, config, and logging
 ├── app.py                         # Application entrypoint (Procfile / Render target)
 ├── Dockerfile                     # Multi-stage lean non-root Docker build
-├── locustfile.py                  # 50-user load testing scenario
+├── LICENSE                        # MIT License
+├── locustfile.py                  # Concurrent user load testing scenario
 ├── Procfile                       # Render deployment declaration (web: gunicorn app:app)
 ├── render.yaml                    # Render infrastructure configuration
 ├── requirements.txt               # Lean production runtime dependencies
@@ -206,7 +230,7 @@ fertilizer-app/
 ## 🔒 Security & Code Quality
 
 - **Vulnerability Scanning**: Verified with `pip-audit` with zero known vulnerabilities.
-- **Static Analysis & Formatting**: Strictly checked with `ruff check .` and `ruff format .`.
+- **Static Analysis & Formatting**: Strictly checked with `ruff check .` and `ruff format --check .`.
 - **Non-Root Execution**: Docker container runs as unprivileged `appuser:appgroup` (UID 10001).
 - **Quality Gate**: PRs must pass all tests with $\ge 80\%$ code coverage and verify model holdout metrics on the untouched test split.
 

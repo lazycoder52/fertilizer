@@ -14,7 +14,16 @@ from sklearn.metrics import accuracy_score, f1_score, top_k_accuracy_score
 
 
 def expected_calibration_error(y_true: np.ndarray, y_proba: np.ndarray, n_bins: int = 10) -> float:
-    """Compute multi-class Expected Calibration Error (ECE)."""
+    """Compute top-label Expected Calibration Error (ECE) with equal-width bins.
+
+    Formula:
+        ECE = sum_{m=1}^{M} (|B_m| / N) * |acc(B_m) - conf(B_m)|
+    where:
+        - M = n_bins (10 equal-width bins spanning [0, 1]).
+        - B_m is the set of samples whose top predicted confidence falls into bin m.
+        - acc(B_m) is the empirical accuracy of predictions in bin m.
+        - conf(B_m) is the mean predicted confidence in bin m.
+    """
     confidences = np.max(y_proba, axis=1)
     predictions = np.argmax(y_proba, axis=1)
     accuracies = predictions == y_true
