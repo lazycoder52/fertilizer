@@ -225,3 +225,68 @@ def test_readme_row_and_line_level_metrics():
     assert sc_ablation_line is not None and sc_top1_pct in sc_ablation_line, (
         f"Soil+Crop Top-1 {sc_top1_pct} not in ablation row: {sc_ablation_line}"
     )
+
+
+def test_cross_document_ablation_and_lofo_consistency():
+    """Quality Gate: Asserts ablation and LOFO figures are identical across README, MODEL_CARD, and DATA_CARD."""
+    metrics_path = Path("model_files/metrics.json")
+    with open(metrics_path, encoding="utf-8") as f:
+        metrics = json.load(f)
+
+    doc_paths = [
+        Path("README.md"),
+        Path("docs/MODEL_CARD.md"),
+        Path("docs/DATA_CARD.md"),
+    ]
+
+    doc_texts = {}
+    for p in doc_paths:
+        assert p.exists(), f"Doc missing: {p}"
+        with open(p, encoding="utf-8") as f:
+            doc_texts[p.name] = f.read()
+
+    # 1. Method A & B Top-1 / Top-3 for all 4 subsets
+    ablation_table = metrics.get("ablation_table", [])
+    assert len(ablation_table) == 4, "Ablation table must have 4 subsets"
+
+    for row in ablation_table:
+        name = row["subset_name"]
+        a_top1 = f"{row['method_a_deployed_imputed']['top1_accuracy'] * 100:.2f}%"
+        a_top3 = f"{row['method_a_deployed_imputed']['top3_accuracy'] * 100:.2f}%"
+        b_top1 = f"{row['method_b_retrained_subset']['top1_accuracy'] * 100:.2f}%"
+        b_top3 = f"{row['method_b_retrained_subset']['top3_accuracy'] * 100:.2f}%"
+
+        for doc_name, text in doc_texts.items():
+            matching_lines = [line for line in text.splitlines() if f"**{name}**" in line]
+            assert len(matching_lines) >= 1, f"Subset row for {name} missing in {doc_name}"
+            row_line = matching_lines[0]
+            assert a_top1 in row_line, f"Method A Top-1 {a_top1} missing in {doc_name} for {name}"
+            assert a_top3 in row_line, f"Method A Top-3 {a_top3} missing in {doc_name} for {name}"
+            assert b_top1 in row_line, f"Method B Top-1 {b_top1} missing in {doc_name} for {name}"
+            assert b_top3 in row_line, f"Method B Top-3 {b_top3} missing in {doc_name} for {name}"
+
+    # 2. LOFO phosphorus and carbon drops
+    lofo = metrics.get("lofo_ablation", {})
+    p_drop = lofo["Phosphorous"]["accuracy_drop"] * 100
+    p_drop_str = f"+{p_drop:.2f}\\%"
+
+    c_drop = lofo["Carbon"]["accuracy_drop"] * 100
+    c_drop_str = f"+{c_drop:.2f}\\%"
+
+    for doc_name, text in doc_texts.items():
+        assert "<!-- BEGIN:lofo_table -->" in text, f"lofo_table marker missing in {doc_name}"
+        lofo_block = text.split("<!-- BEGIN:lofo_table -->")[1].split("<!-- END:lofo_table -->")[0]
+
+        # Check Phosphorous LOFO row
+        p_lines = [line for line in lofo_block.splitlines() if "| **Phosphorous** |" in line]
+        assert len(p_lines) == 1, f"Phosphorous LOFO row missing or duplicated in {doc_name}"
+        assert p_drop_str in p_lines[0], (
+            f"Phosphorous LOFO drop {p_drop_str} missing in {doc_name}: {p_lines[0]}"
+        )
+
+        # Check Carbon LOFO row
+        c_lines = [line for line in lofo_block.splitlines() if "| **Carbon** |" in line]
+        assert len(c_lines) == 1, f"Carbon LOFO row missing or duplicated in {doc_name}"
+        assert c_drop_str in c_lines[0], (
+            f"Carbon LOFO drop {c_drop_str} missing in {doc_name}: {c_lines[0]}"
+        )
