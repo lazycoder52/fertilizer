@@ -100,11 +100,14 @@ def test_api_v1_predict_valid(client):
     assert response.status_code == 200
     data = response.get_json()
     assert data["success"] is True
-    assert "recommendation" in data
-    assert "confidence" in data
+    assert data["recommendation"] == "Urea"
+    assert data["confidence"] == pytest.approx(86.67, abs=0.5)
     assert "remark" in data
     assert len(data["top_3_recommendations"]) == 3
-    assert data["top_3_recommendations"][0]["fertilizer"] == data["recommendation"]
+    assert data["top_3_recommendations"][0]["fertilizer"] == "Urea"
+    assert data["top_3_recommendations"][0]["confidence"] == pytest.approx(86.67, abs=0.5)
+    assert data["top_3_recommendations"][1]["fertilizer"] == "DAP"
+    assert data["top_3_recommendations"][2]["fertilizer"] == "Muriate of Potash"
     assert "explanation" in data
     assert data["explanation"]["enabled"] is True
     assert len(data["explanation"]["top_contributions"]) > 0

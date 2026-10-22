@@ -296,18 +296,30 @@ Interactive OpenAPI / Swagger documentation is available locally at `http://loca
 }
 ```
 
-### Example Response (`200 OK`)
+### Example Response (`200 OK` — generated directly from model inference on sample request)
 
 ```json
 {
   "success": true,
-  "recommendation": "DAP",
-  "confidence": 98.42,
-  "remark": "High phosphorus content helps root development. Ideal for early growth stages.",
+  "recommendation": "Urea",
+  "confidence": 86.67,
+  "remark": "Provides high nitrogen, ideal for rapid leafy growth. Prefer this for nitrogen-deficient soils as it supports vegetative growth.",
   "top_3_recommendations": [
-    {"fertilizer": "DAP", "confidence": 98.42, "remark": "High phosphorus content helps root development."},
-    {"fertilizer": "Balanced NPK Fertilizer", "confidence": 1.15, "remark": "Balanced NPK formulation."},
-    {"fertilizer": "Urea", "confidence": 0.32, "remark": "High nitrogen source."}
+    {
+      "fertilizer": "Urea",
+      "confidence": 86.67,
+      "remark": "Provides high nitrogen, ideal for rapid leafy growth. Prefer this for nitrogen-deficient soils as it supports vegetative growth."
+    },
+    {
+      "fertilizer": "DAP",
+      "confidence": 11.00,
+      "remark": "Rich in phosphorus, essential for root development. Prefer this for phosphorus-deficient soils to improve plant establishment."
+    },
+    {
+      "fertilizer": "Muriate of Potash",
+      "confidence": 2.33,
+      "remark": "High potassium content, improves fruit and flower quality. Prefer this for potassium-deficient soils to enhance crop productivity."
+    }
   ],
   "is_imputed": false,
   "imputed_fields": [],
@@ -315,15 +327,23 @@ Interactive OpenAPI / Swagger documentation is available locally at `http://loca
   "explanation": {
     "enabled": true,
     "top_contributions": [
-      {"feature": "Phosphorous", "display_name": "Phosphorous", "value": 25.0, "impact": 0.4521, "direction": "positive"}
+      {"feature": "Nitrogen", "display_name": "Nitrogen", "value": 40.0, "impact": 0.7993, "direction": "positive"},
+      {"feature": "Phosphorous", "display_name": "Phosphorous", "value": 25.0, "impact": 0.0321, "direction": "positive"}
     ],
-    "positive_drivers": ["Phosphorous"],
-    "negative_drivers": []
+    "positive_drivers": ["Nitrogen", "Phosphorous", "Soil pH"],
+    "negative_drivers": ["Crop Type", "Potassium", "Temperature"]
   },
   "input_received": {
     "Soil": "Loamy Soil",
     "Crop": "Wheat",
-    "Moisture": 0.6
+    "Nitrogen": 40.0,
+    "Phosphorous": 25.0,
+    "Potassium": 15.0,
+    "PH": 6.5,
+    "Moisture": 0.6,
+    "Temperature": 24.0,
+    "Rainfall": 120.0,
+    "Carbon": 1.2
   }
 }
 ```
