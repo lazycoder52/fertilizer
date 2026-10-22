@@ -22,6 +22,9 @@ class AppConfig(BaseModel):
     model_dir: Path = Field(default_factory=lambda: Path(os.getenv("MODEL_DIR", "model_files")))
 
     # Rate Limiting
+    ratelimit_enabled: bool = Field(
+        default_factory=lambda: os.getenv("RATELIMIT_ENABLED", "1").lower() in ("1", "true")
+    )
     rate_limit_default: str = Field(
         default_factory=lambda: os.getenv("RATE_LIMIT_DEFAULT", "120 per minute")
     )

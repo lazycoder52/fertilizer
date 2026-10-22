@@ -8,7 +8,7 @@ on:
 
 jobs:
   quality-gate:
-    name: Code Quality, Security & Model Gate
+    name: Code Quality, Security & Model Quality Gate
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Code Quality & Linting (Ruff Check)
         run: |
@@ -33,10 +33,34 @@ jobs:
         run: |
           ruff format --check .
 
-      - name: Dependency Security Audit (pip-audit)
+      - name: Dependency Security Audit (pip-audit on production runtime)
         run: |
           pip-audit -r requirements.txt
 
       - name: Run Pytest Suite with Model Quality Gate & Coverage >= 80%
         run: |
           pytest -v --cov=src/fertilizer_app --cov-report=term-missing --cov-fail-under=80
+
+  docker-build-and-verify:
+    name: Docker Build & Container Healthcheck
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Lean Production Docker Image
+        run: |
+          docker build -t fertilizer-app:ci .
+
+      - name: Start Container and Verify Healthcheck Probe
+        run: |
+          docker run -d --name fertilizer-service -p 5000:5000 fertilizer-app:ci
+          sleep 5
+          docker ps
+          curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/health
+          docker logs fertilizer-service
+          docker stop fertilizer-service

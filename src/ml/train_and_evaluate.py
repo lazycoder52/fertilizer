@@ -1,7 +1,11 @@
 """Comprehensive Training, Evaluation, and Benchmarking Pipeline.
 
-Evaluates baselines, runs Stratified 5-Fold CV, conducts Optuna tuning,
-performs ablation and noise robustness studies, and exports artifacts.
+Evaluates baselines on an isolated development split using Stratified 5-Fold CV,
+conducts bounded Optuna hyperparameter optimization without holdout leakage,
+trains with random feature masking to reflect uncertainty under missing values,
+computes Expected Calibration Error (ECE) and multi-class Brier scores,
+conducts Permutation Importance, Leave-One-Feature-Out (LOFO) and finer ablation studies,
+and exports production artifacts with genuine untouched test data.
 """
 
 import json
@@ -20,6 +24,7 @@ import yaml
 from lightgbm import LGBMClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -66,14 +71,45 @@ def multiclass_brier_score(
     return float(np.mean(np.sum((y_proba - y_one_hot) ** 2, axis=1)))
 
 
+def expected_calibration_error(
+    y_true_indices: np.ndarray, y_proba: np.ndarray, n_bins: int = 10
+) -> float:
+    """Compute Expected Calibration Error (ECE) for multi-class predictions."""
+    preds = np.argmax(y_proba, axis=1)
+    confs = np.max(y_proba, axis=1)
+    corrects = (preds == y_true_indices).astype(float)
+
+    bin_boundaries = np.linspace(0, 1, n_bins + 1)
+    ece = 0.0
+    n_samples = len(y_true_indices)
+
+    for i in range(n_bins):
+        bin_lower = bin_boundaries[i]
+        bin_upper = bin_boundaries[i + 1]
+        in_bin = (
+            (confs > bin_lower) & (confs <= bin_upper)
+            if i > 0
+            else (confs >= bin_lower) & (confs <= bin_upper)
+        )
+        bin_count = np.sum(in_bin)
+
+        if bin_count > 0:
+            bin_acc = np.mean(corrects[in_bin])
+            bin_conf = np.mean(confs[in_bin])
+            ece += (bin_count / n_samples) * abs(bin_acc - bin_conf)
+
+    return float(ece)
+
+
 def evaluate_cv(
     model: Any, X: pd.DataFrame, y: pd.Series, cv: StratifiedKFold, num_classes: int
 ) -> dict[str, float]:
-    """Run Stratified K-Fold CV and calculate aggregate metrics."""
+    """Run Stratified K-Fold CV on development data and calculate aggregate metrics with std."""
     top1_scores: list[float] = []
     top3_scores: list[float] = []
     macro_f1_scores: list[float] = []
     brier_scores: list[float] = []
+    ece_scores: list[float] = []
 
     for train_idx, val_idx in cv.split(X, y):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
@@ -87,19 +123,21 @@ def evaluate_cv(
 
         if hasattr(model, "predict_proba"):
             y_proba = model.predict_proba(X_val)
-            # Ensure probabilities match total class count
             all_classes = np.arange(num_classes)
             if y_proba.shape[1] == num_classes:
                 top3_scores.append(
                     top_k_accuracy_score(y_val, y_proba, k=min(3, num_classes), labels=all_classes)
                 )
                 brier_scores.append(multiclass_brier_score(y_val.to_numpy(), y_proba, num_classes))
+                ece_scores.append(expected_calibration_error(y_val.to_numpy(), y_proba))
             else:
                 top3_scores.append(top1_scores[-1])
                 brier_scores.append(1.0)
+                ece_scores.append(1.0)
         else:
             top3_scores.append(top1_scores[-1])
             brier_scores.append(1.0)
+            ece_scores.append(1.0)
 
     return {
         "top1_accuracy_mean": float(np.mean(top1_scores)),
@@ -109,7 +147,55 @@ def evaluate_cv(
         "macro_f1_mean": float(np.mean(macro_f1_scores)),
         "macro_f1_std": float(np.std(macro_f1_scores)),
         "brier_score_mean": float(np.mean(brier_scores)),
+        "brier_score_std": float(np.std(brier_scores)),
+        "ece_mean": float(np.mean(ece_scores)),
+        "ece_std": float(np.std(ece_scores)),
     }
+
+
+def create_mask_augmented_data(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    numerical_cols: list[str],
+    column_medians: dict[str, float],
+    seed: int = 42,
+    mask_rate: float = 0.35,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Augment training data with masked feature samples.
+
+    Enables the tree ensemble to learn appropriate uncertainty when farmers
+    omit optional soil test parameters, producing well-calibrated probabilities.
+    """
+    rng = np.random.default_rng(seed)
+    augmented_X = [X_train.copy()]
+    augmented_y = [y_train.copy()]
+
+    # Variant 1: Random feature masking (each continuous feature masked with mask_rate)
+    X_rand_masked = X_train.copy()
+    for col in numerical_cols:
+        mask = rng.random(len(X_train)) < mask_rate
+        X_rand_masked.loc[mask, col] = column_medians[col]
+    augmented_X.append(X_rand_masked)
+    augmented_y.append(y_train.copy())
+
+    # Variant 2: Minimal input mode (only Soil and Crop provided, all continuous masked)
+    X_min_masked = X_train.copy()
+    for col in numerical_cols:
+        X_min_masked[col] = column_medians[col]
+    augmented_X.append(X_min_masked)
+    augmented_y.append(y_train.copy())
+
+    # Variant 3: NPK only mode (Environmental features masked, N-P-K present)
+    env_cols = [c for c in numerical_cols if c not in ["Nitrogen", "Phosphorous", "Potassium"]]
+    X_npk_masked = X_train.copy()
+    for col in env_cols:
+        X_npk_masked[col] = column_medians[col]
+    augmented_X.append(X_npk_masked)
+    augmented_y.append(y_train.copy())
+
+    combined_X = pd.concat(augmented_X, ignore_index=True)
+    combined_y = pd.concat(augmented_y, ignore_index=True)
+    return combined_X, combined_y
 
 
 def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any]:
@@ -123,7 +209,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     output_dir = Path(cfg.get("output_dir", "model_files"))
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Dataset Audit
+    # 1. Dataset Audit & Target Leakage Check
     logger.info("Running dataset audit and integrity checks...")
     audit_results = run_dataset_audit(cfg["data_path"])
 
@@ -150,16 +236,54 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
         "Soil_encoded",
         "Crop_encoded",
     ]
+    numerical_cols = cfg["features"]["numerical"]
+
+    # Verify zero target leakage
+    assert "Remark" not in feature_cols, "CRITICAL ERROR: 'Remark' cannot be in feature columns!"
+    assert "Fertilizer" not in feature_cols, (
+        "CRITICAL ERROR: 'Fertilizer' cannot be in feature columns!"
+    )
+    logger.info(
+        "✓ Target leakage check PASSED: 'Remark' and target are strictly excluded from input vectors."
+    )
 
     X = df[feature_cols]
     y = df["Fertilizer_encoded"]
+
+    # Calculate and persist training feature medians for production imputation
+    feature_medians = {col: float(X[col].median()) for col in numerical_cols}
+    with open(output_dir / "feature_medians.json", "w", encoding="utf-8") as f:
+        json.dump(feature_medians, f, indent=2)
+
+    # 2. Strict Train / Holdout Separation
+    # Split into 80% Development (tuning & baselines) and 20% untouched Holdout
+    X_dev, X_test, y_dev, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=seed, stratify=y
+    )
+    logger.info(
+        "Dataset partitioned into Development set (%d samples) and Untouched Holdout (%d samples).",
+        len(X_dev),
+        len(X_test),
+    )
+
+    # Save untouched holdout set for CI quality gate evaluation
+    joblib.dump(
+        {
+            "X_test": X_test,
+            "y_test": y_test,
+            "feature_cols": feature_cols,
+            "classes": le_fertilizer.classes_.tolist(),
+        },
+        output_dir / "test_data.joblib",
+        compress=3,
+    )
 
     cv = StratifiedKFold(
         n_splits=cfg["cross_validation"]["n_splits"], shuffle=True, random_state=seed
     )
 
-    # 2. Multi-Model Baseline Comparison
-    logger.info("Benchmarking model baselines using 5-fold Stratified CV...")
+    # 3. Multi-Model Baseline Comparison on Development Data
+    logger.info("Benchmarking model baselines on Development split using 5-fold Stratified CV...")
     baselines: dict[str, Any] = {
         "Majority_Class_Baseline": DummyClassifier(strategy="most_frequent"),
         "Logistic_Regression": Pipeline(
@@ -176,21 +300,23 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     baseline_metrics: dict[str, dict[str, float]] = {}
     for name, model in baselines.items():
         start_time = time.time()
-        metrics = evaluate_cv(model, X, y, cv, num_classes)
+        metrics = evaluate_cv(model, X_dev, y_dev, cv, num_classes)
         metrics["training_time_seconds"] = round(time.time() - start_time, 3)
         baseline_metrics[name] = metrics
         logger.info(
-            "[%s] Top-1: %.4f (±%.4f) | Top-3: %.4f | Macro-F1: %.4f | Brier: %.4f",
+            "[%s] Top-1: %.4f (±%.4f) | Top-3: %.4f (±%.4f) | Macro-F1: %.4f (±%.4f) | ECE: %.4f",
             name,
             metrics["top1_accuracy_mean"],
             metrics["top1_accuracy_std"],
             metrics["top3_accuracy_mean"],
+            metrics["top3_accuracy_std"],
             metrics["macro_f1_mean"],
-            metrics["brier_score_mean"],
+            metrics["macro_f1_std"],
+            metrics["ece_mean"],
         )
 
-    # 3. Bounded Optuna Hyperparameter Optimization for Random Forest
-    logger.info("Running bounded Optuna optimization on Random Forest...")
+    # 4. Bounded Optuna Hyperparameter Optimization on Development Data
+    logger.info("Running bounded Optuna optimization on Random Forest (Development split only)...")
 
     def objective(trial: optuna.Trial) -> float:
         n_estimators = trial.suggest_int("n_estimators", 50, 200, step=25)
@@ -206,7 +332,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
             random_state=seed,
             n_jobs=-1,
         )
-        res = evaluate_cv(clf, X, y, cv, num_classes)
+        res = evaluate_cv(clf, X_dev, y_dev, cv, num_classes)
         return res["macro_f1_mean"]
 
     study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=seed))
@@ -217,16 +343,25 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     )
 
     best_rf_params = study.best_params
-    logger.info("Best RF Parameters: %s (Macro-F1: %.4f)", best_rf_params, study.best_value)
+    logger.info("Best RF Parameters: %s (Dev Macro-F1: %.4f)", best_rf_params, study.best_value)
 
-    # 4. Train Final Model and Conduct Holdout Evaluation
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=seed, stratify=y
+    # 5. Train Final Model with Random Feature Masking
+    # Augment X_dev with masked variants so the model learns uncertainty under missing features
+    logger.info("Training final production model with feature masking on development split...")
+    X_dev_aug, y_dev_aug = create_mask_augmented_data(
+        X_dev,
+        y_dev,
+        numerical_cols,
+        feature_medians,
+        seed=seed,
+        mask_rate=cfg["masking"]["mask_prob"],
     )
 
     final_model = RandomForestClassifier(**best_rf_params, random_state=seed, n_jobs=-1)
-    final_model.fit(X_train, y_train)
+    final_model.fit(X_dev_aug, y_dev_aug)
 
+    # 6. Evaluation on the Untouched Holdout Test Set
+    logger.info("Evaluating on strict, untouched holdout set (%d samples)...", len(X_test))
     y_pred = final_model.predict(X_test)
     y_proba = final_model.predict_proba(X_test)
 
@@ -234,50 +369,138 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     holdout_top3 = float(top_k_accuracy_score(y_test, y_proba, k=3, labels=np.arange(num_classes)))
     holdout_macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
     holdout_brier = multiclass_brier_score(y_test.to_numpy(), y_proba, num_classes)
+    holdout_ece = expected_calibration_error(y_test.to_numpy(), y_proba)
+    holdout_mean_conf = float(np.mean(np.max(y_proba, axis=1)))
+
+    logger.info(
+        "Holdout Results -> Top-1: %.4f | Top-3: %.4f | Macro-F1: %.4f | Brier: %.4f | ECE: %.4f | Avg Conf: %.4f",
+        holdout_top1,
+        holdout_top3,
+        holdout_macro_f1,
+        holdout_brier,
+        holdout_ece,
+        holdout_mean_conf,
+    )
+
+    # 7. Evaluate Calibration & Uncertainty under Missing / Imputed Inputs
+    logger.info("Evaluating uncertainty and calibration on masked holdout sets...")
+    masked_evaluations = {}
+
+    # 7a. Soil & Crop Only (all continuous masked with medians)
+    X_test_soil_crop = X_test.copy()
+    for col in numerical_cols:
+        X_test_soil_crop[col] = feature_medians[col]
+    proba_sc = final_model.predict_proba(X_test_soil_crop)
+    pred_sc = final_model.predict(X_test_soil_crop)
+    masked_evaluations["soil_and_crop_only"] = {
+        "top1_accuracy": round(float(accuracy_score(y_test, pred_sc)), 4),
+        "top3_accuracy": round(
+            float(top_k_accuracy_score(y_test, proba_sc, k=3, labels=np.arange(num_classes))), 4
+        ),
+        "macro_f1": round(float(f1_score(y_test, pred_sc, average="macro", zero_division=0)), 4),
+        "brier_score": round(multiclass_brier_score(y_test.to_numpy(), proba_sc, num_classes), 4),
+        "ece": round(expected_calibration_error(y_test.to_numpy(), proba_sc), 4),
+        "mean_confidence": round(float(np.mean(np.max(proba_sc, axis=1))), 4),
+    }
+
+    # 7b. NPK Only (Environmental continuous masked with medians)
+    X_test_npk = X_test.copy()
+    for col in ["Temperature", "Moisture", "Rainfall", "PH", "Carbon"]:
+        X_test_npk[col] = feature_medians[col]
+    proba_npk = final_model.predict_proba(X_test_npk)
+    pred_npk = final_model.predict(X_test_npk)
+    masked_evaluations["npk_only"] = {
+        "top1_accuracy": round(float(accuracy_score(y_test, pred_npk)), 4),
+        "top3_accuracy": round(
+            float(top_k_accuracy_score(y_test, proba_npk, k=3, labels=np.arange(num_classes))), 4
+        ),
+        "macro_f1": round(float(f1_score(y_test, pred_npk, average="macro", zero_division=0)), 4),
+        "brier_score": round(multiclass_brier_score(y_test.to_numpy(), proba_npk, num_classes), 4),
+        "ece": round(expected_calibration_error(y_test.to_numpy(), proba_npk), 4),
+        "mean_confidence": round(float(np.mean(np.max(proba_npk, axis=1))), 4),
+    }
 
     class_names = le_fertilizer.classes_.tolist()
     clf_report = classification_report(y_test, y_pred, target_names=class_names, output_dict=True)
     conf_mat = confusion_matrix(y_test, y_pred).tolist()
 
-    feature_importances = dict(
-        zip(
-            feature_cols,
-            [round(float(v), 5) for v in final_model.feature_importances_],
-            strict=False,
+    # 8. Permutation Importance & LOFO Ablation
+    logger.info("Computing Permutation Importance on holdout set...")
+    perm_res = permutation_importance(
+        final_model, X_test, y_test, n_repeats=10, random_state=seed, n_jobs=-1
+    )
+    perm_importance = {
+        col: {
+            "mean_accuracy_drop": round(float(perm_res.importances_mean[i]), 5),
+            "std": round(float(perm_res.importances_std[i]), 5),
+        }
+        for i, col in enumerate(feature_cols)
+    }
+    sorted_perm_importance = dict(
+        sorted(
+            perm_importance.items(), key=lambda item: item[1]["mean_accuracy_drop"], reverse=True
         )
     )
-    sorted_importances = dict(
-        sorted(feature_importances.items(), key=lambda item: item[1], reverse=True)
-    )
 
-    # 5. Form-Friction Ablation Study
-    logger.info("Executing form-friction ablation studies...")
+    # 9. Leave-One-Feature-Out (LOFO) Ablation
+    logger.info("Executing Leave-One-Feature-Out (LOFO) ablation...")
+    lofo_results = {}
+    for col in feature_cols:
+        remaining_cols = [c for c in feature_cols if c != col]
+        X_tr_lofo = X_dev_aug[remaining_cols]
+        X_te_lofo = X_test[remaining_cols]
+
+        clf_lofo = RandomForestClassifier(**best_rf_params, random_state=seed, n_jobs=-1)
+        clf_lofo.fit(X_tr_lofo, y_dev_aug)
+        p_lofo = clf_lofo.predict(X_te_lofo)
+        lofo_results[col] = {
+            "omitted_feature": col,
+            "top1_accuracy": round(float(accuracy_score(y_test, p_lofo)), 4),
+            "macro_f1": round(float(f1_score(y_test, p_lofo, average="macro", zero_division=0)), 4),
+            "accuracy_drop": round(holdout_top1 - float(accuracy_score(y_test, p_lofo)), 4),
+        }
+
+    # 10. Finer Ablation Subsets (Identifying Minimal Suite for ~95% Accuracy)
+    logger.info("Evaluating finer ablation subsets...")
     ablation_results = {}
     for subset_name, cols in cfg["ablation"]["subsets"].items():
-        X_sub = df[cols]
-        clf_sub = RandomForestClassifier(n_estimators=100, random_state=seed, n_jobs=-1)
-        sub_metrics = evaluate_cv(clf_sub, X_sub, y, cv, num_classes)
+        X_tr_sub = X_dev_aug[cols]
+        X_te_sub = X_test[cols]
+
+        clf_sub = RandomForestClassifier(**best_rf_params, random_state=seed, n_jobs=-1)
+        clf_sub.fit(X_tr_sub, y_dev_aug)
+
+        pred_sub = clf_sub.predict(X_te_sub)
+        proba_sub = clf_sub.predict_proba(X_te_sub)
+
+        top1_sub = float(accuracy_score(y_test, pred_sub))
+        top3_sub = float(
+            top_k_accuracy_score(y_test, proba_sub, k=3, labels=np.arange(num_classes))
+        )
+        macro_f1_sub = float(f1_score(y_test, pred_sub, average="macro", zero_division=0))
+
         ablation_results[subset_name] = {
             "features_used": cols,
             "feature_count": len(cols),
-            "top1_accuracy": round(sub_metrics["top1_accuracy_mean"], 4),
-            "top3_accuracy": round(sub_metrics["top3_accuracy_mean"], 4),
-            "macro_f1": round(sub_metrics["macro_f1_mean"], 4),
+            "top1_accuracy": round(top1_sub, 4),
+            "top3_accuracy": round(top3_sub, 4),
+            "macro_f1": round(macro_f1_sub, 4),
         }
         logger.info(
-            "Ablation [%s] Top-1: %.4f | Macro-F1: %.4f",
+            "Ablation [%s] Top-1: %.4f | Top-3: %.4f | Macro-F1: %.4f (%d features)",
             subset_name,
-            sub_metrics["top1_accuracy_mean"],
-            sub_metrics["macro_f1_mean"],
+            top1_sub,
+            top3_sub,
+            macro_f1_sub,
+            len(cols),
         )
 
-    # 6. Input Noise Robustness Testing
-    logger.info("Conducting input noise robustness testing...")
+    # 11. Measurement Sampling Variance Robustness Testing
+    logger.info("Conducting measurement sampling variance robustness testing...")
     noise_results = {}
-    numerical_cols = cfg["features"]["numerical"]
     std_devs = X_test[numerical_cols].std()
 
-    for noise_level in cfg["noise_robustness"]["noise_levels"]:
+    for noise_level in cfg["measurement_noise"]["noise_levels"]:
         X_noisy = X_test.copy()
         for col in numerical_cols:
             noise = np.random.normal(0, noise_level * std_devs[col], size=len(X_test))
@@ -294,10 +517,10 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
             "relative_degradation_pct": round((holdout_top1 - noisy_acc) / holdout_top1 * 100, 2),
         }
 
-    # 7. Model Serialization & Metadata Packaging
-    logger.info("Saving models and metadata to %s...", output_dir)
+    # 12. Model Serialization & Packaging
+    logger.info("Serializing production models and metadata to %s...", output_dir)
 
-    # Joblib artifacts (modern standard)
+    # Joblib artifacts
     joblib.dump(final_model, output_dir / "model.joblib", compress=3)
     encoders = {
         "le_soil": le_soil,
@@ -307,7 +530,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     joblib.dump(encoders, output_dir / "encoders.joblib", compress=3)
     joblib.dump(feature_cols, output_dir / "features.joblib", compress=3)
 
-    # Backward compatibility with pickle for current app.py
+    # Backward compatibility with pickle
     import pickle
 
     with open(output_dir / "model.pkl", "wb") as f:
@@ -317,7 +540,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     with open(output_dir / "features.pkl", "wb") as f:
         pickle.dump(feature_cols, f)
 
-    # Fertilizer descriptions / remarks mapping
+    # Descriptions / remarks mapping
     if audit_results.get("remarks_mapping"):
         with open(output_dir / "fertilizer_descriptions.json", "w", encoding="utf-8") as f:
             json.dump(audit_results["remarks_mapping"], f, indent=2)
@@ -326,19 +549,29 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     metrics_payload = {
         "evaluation_timestamp": datetime.now(UTC).isoformat(),
         "git_commit": get_git_commit_hash(),
-        "model_architecture": "RandomForestClassifier (Optuna Tuned)",
+        "model_architecture": "RandomForestClassifier (Optuna Tuned on Dev Split with Masking)",
         "best_hyperparameters": best_rf_params,
+        "target_leakage_audit": {
+            "remark_column_excluded": True,
+            "target_column_excluded": True,
+            "status": "PASSED (Zero Leakage)",
+        },
         "holdout_evaluation": {
             "test_size": 0.2,
+            "test_sample_count": len(X_test),
             "top1_accuracy": round(holdout_top1, 4),
             "top3_accuracy": round(holdout_top3, 4),
             "macro_f1": round(holdout_macro_f1, 4),
             "brier_score": round(holdout_brier, 4),
+            "expected_calibration_error": round(holdout_ece, 4),
+            "mean_confidence": round(holdout_mean_conf, 4),
         },
+        "masked_input_evaluations": masked_evaluations,
         "baseline_comparison": baseline_metrics,
+        "permutation_importance": sorted_perm_importance,
+        "lofo_ablation": lofo_results,
         "ablation_study": ablation_results,
-        "noise_robustness": noise_results,
-        "feature_importance": sorted_importances,
+        "measurement_noise_robustness": noise_results,
         "classification_report": clf_report,
         "confusion_matrix": conf_mat,
         "classes": class_names,
@@ -349,13 +582,14 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
 
     # Production Metadata JSON
     metadata_payload = {
-        "model_version": "1.0.0",
+        "model_version": "1.1.0",
         "git_commit": get_git_commit_hash(),
         "algorithm": "RandomForestClassifier",
         "top1_accuracy": round(holdout_top1, 4),
         "top3_accuracy": round(holdout_top3, 4),
         "macro_f1": round(holdout_macro_f1, 4),
         "brier_score": round(holdout_brier, 4),
+        "expected_calibration_error": round(holdout_ece, 4),
         "input_features": feature_cols,
         "target_classes": class_names,
         "serialization": "joblib",
@@ -366,6 +600,7 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
                 "Does not calculate dosage (kg/ha or lbs/acre)",
                 "Does not compute application schedule or growth stage timing",
                 "Dataset contains synthetic artifact values in rainfall and nutrients",
+                "Synthetic label boundaries allow high accuracy on rule-based partitions",
             ],
         },
     }

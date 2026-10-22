@@ -221,6 +221,21 @@
             animation: fadeIn 0.3s ease;
         }
 
+        .impute-warning-banner {
+            display: none;
+            margin-bottom: 20px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fef08a;
+            font-size: 13.5px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
         /* Results Card */
         .result-container {
             display: none;
@@ -426,7 +441,7 @@
         </header>
 
         <div class="info-card">
-            <strong>Intelligent Partial Inputs:</strong> Only <strong>Soil Type</strong> and <strong>Crop Type</strong> are strictly required. Numerical parameters default to optimal median baselines if omitted, though providing NPK or soil pH improves prediction accuracy up to <strong>99.5%</strong>.
+            <strong>Partial Inputs Supported:</strong> Only <strong>Soil Type</strong> and <strong>Crop Type</strong> are strictly required. Missing parameters default to regional benchmark medians. However, providing actual laboratory NPK and pH soil test values significantly improves recommendation accuracy (from ~48% up to ~98%).
         </div>
 
         <form id="recommendationForm">
@@ -498,6 +513,14 @@
         <div class="error-banner" id="errorBanner"></div>
 
         <div class="result-container" id="resultContainer">
+            <div class="impute-warning-banner" id="imputeWarningBanner">
+                <span style="font-size: 18px;">⚠️</span>
+                <div>
+                    <strong>Low Confidence Notice (Benchmark Defaults Used):</strong><br>
+                    <span id="imputeWarningText"></span>
+                </div>
+            </div>
+
             <div class="recommendation-hero">
                 <div>
                     <div class="rec-label">Primary Recommendation</div>
@@ -574,6 +597,16 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
+                    // Populate Imputation Warning Banner if defaults were used
+                    const imputeBanner = document.getElementById('imputeWarningBanner');
+                    const imputeText = document.getElementById('imputeWarningText');
+                    if (data.is_imputed && data.warning) {
+                        imputeBanner.style.display = 'flex';
+                        imputeText.textContent = data.warning;
+                    } else {
+                        imputeBanner.style.display = 'none';
+                    }
+
                     // Populate Primary Recommendation
                     document.getElementById('primaryRecommendation').textContent = data.recommendation;
                     document.getElementById('confidenceValue').textContent = data.confidence.toFixed(1) + '%';
