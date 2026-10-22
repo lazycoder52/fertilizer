@@ -83,8 +83,21 @@ class TestSchemas:
         req_frac = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=0.60)
         assert req_frac.Moisture == 0.60
 
-        req_full = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=1.0)
-        assert req_full.Moisture == 1.0
+        # Required edge cases: 0.5, 1.0, 1.01, 100, and 100.01
+        req_half = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=0.5)
+        assert req_half.Moisture == 0.5
+
+        req_one = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=1.0)
+        assert req_one.Moisture == 1.0
+
+        req_just_over_one = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=1.01)
+        assert abs(req_just_over_one.Moisture - 0.0101) < 1e-6
+
+        req_hundred = PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=100)
+        assert req_hundred.Moisture == 1.0
+
+        with pytest.raises(ValidationError):
+            PredictRequest(Soil="Loamy", Crop="Wheat", Moisture=100.01)
 
     def test_temperature_out_of_bounds(self):
         """Test validation error when temperature exceeds [-20, 60]."""
