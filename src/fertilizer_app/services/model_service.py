@@ -83,11 +83,30 @@ class ModelService:
             with open(desc_path, encoding="utf-8") as f:
                 self.fertilizer_descriptions = json.load(f)
 
-        # 3. Model Metadata
+        # 3. Model Metadata and Runtime Metrics
         meta_path = self.model_dir / "model_metadata.json"
         if meta_path.exists():
             with open(meta_path, encoding="utf-8") as f:
                 self.model_metadata = json.load(f)
+        else:
+            self.model_metadata = {}
+
+        metrics_path = self.model_dir / "metrics.json"
+        if metrics_path.exists():
+            with open(metrics_path, encoding="utf-8") as f:
+                self.metrics_data = json.load(f)
+            holdout = self.metrics_data.get("holdout_evaluation", {})
+            for key in [
+                "top1_accuracy",
+                "top3_accuracy",
+                "macro_f1",
+                "brier_score",
+                "expected_calibration_error",
+            ]:
+                if key in holdout:
+                    self.model_metadata[key] = holdout[key]
+        else:
+            self.metrics_data = {}
 
         # 4. Feature Medians for Imputation
         medians_path = self.model_dir / "feature_medians.json"
@@ -249,7 +268,7 @@ class ModelService:
 
     def get_info(self) -> dict[str, Any]:
         """Return model metadata, feature requirements, and categories."""
-        return {
+        info = {
             "soil_types": self.soil_types,
             "crop_types": self.crop_types,
             "fertilizer_classes": self.fertilizer_classes,
@@ -268,6 +287,9 @@ class ModelService:
             "required_categorical": ["Soil", "Crop"],
             "model_metadata": self.model_metadata,
         }
+        if hasattr(self, "metrics_data") and "holdout_evaluation" in self.metrics_data:
+            info["metrics"] = self.metrics_data["holdout_evaluation"]
+        return info
 
     def get_metrics(self) -> dict[str, Any]:
         """Return live operational telemetry."""

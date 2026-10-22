@@ -2,11 +2,6 @@
   "model_version": "1.1.0",
   "git_commit": "1e3fbb4",
   "algorithm": "RandomForestClassifier",
-  "top1_accuracy": 0.9871,
-  "top3_accuracy": 1.0,
-  "macro_f1": 0.9431,
-  "brier_score": 0.0552,
-  "expected_calibration_error": 0.1209,
   "input_features": [
     "Temperature",
     "Moisture",

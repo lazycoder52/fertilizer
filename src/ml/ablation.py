@@ -48,29 +48,24 @@ def run_ablation_study(
     seed = cfg.get("seed", 42)
     output_dir = Path(cfg.get("output_dir", "model_files"))
 
-    # Load test data and feature medians
-    test_data = joblib.load(output_dir / "test_data.joblib")
-    X_test: pd.DataFrame = test_data["X_test"]
-    y_test: pd.Series = test_data["y_test"]
-    feature_cols: list[str] = test_data["feature_cols"]
-    class_names: list[str] = test_data["classes"]
+    from src.ml.split_utils import get_dataset_splits
+
+    splits = get_dataset_splits(
+        data_path=cfg["data_path"],
+        output_dir=output_dir,
+        seed=seed,
+    )
+    X_dev: pd.DataFrame = splits["X_dev"]
+    y_dev: pd.Series = splits["y_dev"]
+    X_test: pd.DataFrame = splits["X_test"]
+    y_test: pd.Series = splits["y_test"]
+    feature_cols: list[str] = splits["feature_cols"]
+    class_names: list[str] = splits["class_names"]
     num_classes = len(class_names)
     y_test_np = y_test.to_numpy()
 
     with open(output_dir / "feature_medians.json", encoding="utf-8") as f:
         feature_medians = json.load(f)
-
-    # Load raw dataset and reconstruct development split
-    encoders = joblib.load(output_dir / "encoders.joblib")
-    df = pd.read_csv(cfg["data_path"])
-    df["Soil_encoded"] = encoders["le_soil"].transform(df["Soil"].astype(str))
-    df["Crop_encoded"] = encoders["le_crop"].transform(df["Crop"].astype(str))
-    df["Fertilizer_encoded"] = encoders["le_fertilizer"].transform(df["Fertilizer"].astype(str))
-
-    X = df[feature_cols]
-    y = df["Fertilizer_encoded"]
-    X_dev = X.drop(index=X_test.index)
-    y_dev = y.drop(index=X_test.index)
 
     # Load production model
     prod_model = joblib.load(output_dir / "model.joblib")
@@ -239,8 +234,10 @@ def run_ablation_study(
 
     metrics_data.update(
         {
-            "ablation_timestamp": datetime.now(UTC).isoformat(),
-            "git_commit": get_git_commit_hash(),
+            "ablation_timestamp": metrics_data.get(
+                "ablation_timestamp", datetime.now(UTC).isoformat()
+            ),
+            "git_commit": metrics_data.get("git_commit", get_git_commit_hash()),
             "ablation_table": ablation_table,
             "ablation_study": ablation_dict,
             "permutation_importance": sorted_perm_importance,

@@ -39,6 +39,31 @@ def test_api_v1_info(client):
     assert len(data["soil_types"]) > 0
 
 
+def test_api_v1_info_metrics_match_metrics_json(client):
+    """Verify each metric returned by /api/v1/info exactly matches model_files/metrics.json."""
+    import json
+    from pathlib import Path
+
+    metrics_path = Path(__file__).resolve().parents[1] / "model_files" / "metrics.json"
+    assert metrics_path.exists(), "metrics.json must exist"
+    with open(metrics_path, encoding="utf-8") as f:
+        metrics_data = json.load(f)
+
+    holdout = metrics_data["holdout_evaluation"]
+
+    response = client.get("/api/v1/info")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    # Check top-level metrics block
+    assert "metrics" in data
+    for key, expected_val in holdout.items():
+        assert key in data["metrics"]
+        assert data["metrics"][key] == pytest.approx(expected_val, abs=1e-6), (
+            f"Metric {key} in info metrics ({data['metrics'][key]}) != metrics.json ({expected_val})"
+        )
+
+
 def test_api_v1_metrics(client):
     """Verify /api/v1/metrics returns operational counters."""
     response = client.get("/api/v1/metrics")
@@ -68,9 +93,14 @@ def test_api_v1_predict_valid(client):
     assert data["success"] is True
     assert "recommendation" in data
     assert "confidence" in data
+    assert 0.0 <= data["confidence"] <= 100.0
     assert "remark" in data
     assert len(data["top_3_recommendations"]) == 3
     assert data["top_3_recommendations"][0]["fertilizer"] == data["recommendation"]
+    for item in data["top_3_recommendations"]:
+        assert 0.0 <= item["confidence"] <= 100.0
+    confidences = [item["confidence"] for item in data["top_3_recommendations"]]
+    assert all(confidences[i] >= confidences[i + 1] for i in range(len(confidences) - 1))
     assert "explanation" in data
     assert data["explanation"]["enabled"] is True
     assert len(data["explanation"]["top_contributions"]) > 0
