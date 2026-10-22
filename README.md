@@ -65,7 +65,7 @@ graph TD
 - **Evaluated on Strict Untouched Holdout ($N=620$)**:
   - Top-1 Accuracy: **$98.71\%$** | Top-3 Accuracy: **$100.00\%$** | Macro-F1: **$0.9431$** | Brier Score: **$0.0552$** | Expected Calibration Error (ECE): **$0.1209$**.
 - **Flexible Input Handling**:
-  - Soil moisture accepts both decimal fractions (`0.0 - 1.0`, e.g., `0.60`) and percentages (`0% - 100%`, e.g., `60`), automatically converting percentages to fractions at the Pydantic boundary.
+  - Soil moisture rule: Values in `[0.0, 1.0]` are treated as fractions (where `1.0` means 100%), and values in `(1.0, 100.0]` are treated as percentages (e.g., `60` means 60%, `100` means 100%) and normalized to `[0.0, 1.0]`. Values $> 100$ or $< 0$ are rejected by validation.
   - Displays a visible **"Low confidence: using default benchmark values for omitted soil test parameters"** warning in the UI and API whenever defaults are used.
 - **Finer Input Ablation & Sensitivity Analysis**:
   - Soil & Crop alone achieves **$46.29\%$ Top-1** ($79.84\%$ Top-3).
