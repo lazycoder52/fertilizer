@@ -1,6 +1,6 @@
 {
-  "evaluation_timestamp": "2026-10-22T08:05:18.992945+00:00",
-  "git_commit": "1e3fbb4",
+  "evaluation_timestamp": "2026-10-22T17:51:52.507982+00:00",
+  "git_commit": "f90e4c1",
   "model_architecture": "RandomForestClassifier (Optuna Tuned on Dev Split with Masking)",
   "best_hyperparameters": {
     "n_estimators": 75,
@@ -16,282 +16,319 @@
   "holdout_evaluation": {
     "test_size": 0.2,
     "test_sample_count": 620,
-    "top1_accuracy": 0.9871,
-    "top3_accuracy": 1.0,
-    "macro_f1": 0.9431,
-    "brier_score": 0.0552,
-    "expected_calibration_error": 0.1209,
-    "mean_confidence": 0.8662
+    "top1_accuracy": 0.9823,
+    "top3_accuracy": 0.9984,
+    "macro_f1": 0.9218,
+    "brier_score": 0.0538,
+    "expected_calibration_error": 0.1144,
+    "mean_confidence": 0.8688
   },
   "masked_input_evaluations": {
     "soil_and_crop_only": {
       "top1_accuracy": 0.4629,
-      "top3_accuracy": 0.7984,
+      "top3_accuracy": 0.8081,
       "macro_f1": 0.1907,
-      "brier_score": 0.6815,
-      "ece": 0.0593,
-      "mean_confidence": 0.449
+      "brier_score": 0.6843,
+      "expected_calibration_error": 0.0496,
+      "mean_confidence": 0.444
     },
     "npk_only": {
-      "top1_accuracy": 0.7516,
+      "top1_accuracy": 0.7468,
       "top3_accuracy": 0.9694,
-      "macro_f1": 0.513,
-      "brier_score": 0.3108,
-      "ece": 0.0386,
-      "mean_confidence": 0.7178
+      "macro_f1": 0.5108,
+      "brier_score": 0.3142,
+      "expected_calibration_error": 0.0367,
+      "mean_confidence": 0.7151
     }
   },
   "baseline_comparison": {
     "Majority_Class_Baseline": {
-      "top1_accuracy_mean": 0.33991935483870966,
-      "top1_accuracy_std": 0.0009876974769287,
-      "top3_accuracy_mean": 0.6072580645161291,
-      "top3_accuracy_std": 0.0015087328172475618,
-      "macro_f1_mean": 0.05073720445692544,
-      "macro_f1_std": 0.000110059508326884,
-      "brier_score_mean": 1.3201612903225806,
-      "brier_score_std": 0.0019753949538573456,
-      "ece_mean": 0.6600806451612904,
-      "ece_std": 0.000987697476928727,
-      "training_time_seconds": 0.016
+      "top1_accuracy_mean": 0.3399,
+      "top1_accuracy_std": 0.001,
+      "top3_accuracy_mean": 0.6073,
+      "top3_accuracy_std": 0.0008,
+      "macro_f1_mean": 0.0507,
+      "macro_f1_std": 0.0001,
+      "brier_score_mean": 1.3201,
+      "brier_score_std": 0.002,
+      "ece_mean": 0.6601,
+      "ece_std": 0.001,
+      "mean_confidence_mean": 1.0,
+      "mean_confidence_std": 0.0,
+      "training_time_seconds": 0.017
     },
     "Logistic_Regression": {
-      "top1_accuracy_mean": 0.7995967741935484,
-      "top1_accuracy_std": 0.011658735721613708,
-      "top3_accuracy_mean": 0.9814516129032258,
-      "top3_accuracy_std": 0.005003900663705975,
-      "macro_f1_mean": 0.6781431488585972,
-      "macro_f1_std": 0.02575079123692706,
-      "brier_score_mean": 0.296213718210791,
-      "brier_score_std": 0.009702437951391028,
-      "ece_mean": 0.06818573592879094,
-      "ece_std": 0.006072277724603151,
-      "training_time_seconds": 0.152
+      "top1_accuracy_mean": 0.8036,
+      "top1_accuracy_std": 0.0091,
+      "top3_accuracy_mean": 0.9827,
+      "top3_accuracy_std": 0.0042,
+      "macro_f1_mean": 0.6815,
+      "macro_f1_std": 0.0215,
+      "brier_score_mean": 0.2953,
+      "brier_score_std": 0.0113,
+      "ece_mean": 0.0732,
+      "ece_std": 0.0089,
+      "mean_confidence_mean": 0.7388,
+      "mean_confidence_std": 0.0053,
+      "training_time_seconds": 0.15
     },
-    "Decision_Tree": {
-      "top1_accuracy_mean": 0.9935483870967742,
-      "top1_accuracy_std": 0.003468679543162357,
-      "top3_accuracy_mean": 0.9955645161290322,
-      "top3_accuracy_std": 0.0023511902801795774,
-      "macro_f1_mean": 0.9755903330911089,
-      "macro_f1_std": 0.0161215433540526,
-      "brier_score_mean": 0.012903225806451613,
-      "brier_score_std": 0.006937359086324699,
-      "ece_mean": 0.006451612903225823,
-      "ece_std": 0.003468679543162357,
-      "training_time_seconds": 0.062
+    "Decision_Tree_Clean": {
+      "top1_accuracy_mean": 0.9928,
+      "top1_accuracy_std": 0.0052,
+      "top3_accuracy_mean": 0.9952,
+      "top3_accuracy_std": 0.0042,
+      "macro_f1_mean": 0.9771,
+      "macro_f1_std": 0.0179,
+      "brier_score_mean": 0.0145,
+      "brier_score_std": 0.0104,
+      "ece_mean": 0.0072,
+      "ece_std": 0.0052,
+      "mean_confidence_mean": 1.0,
+      "mean_confidence_std": 0.0,
+      "training_time_seconds": 0.059
+    },
+    "Decision_Tree_Masked": {
+      "top1_accuracy_mean": 0.9427,
+      "top1_accuracy_std": 0.0106,
+      "top3_accuracy_mean": 0.9645,
+      "top3_accuracy_std": 0.005,
+      "macro_f1_mean": 0.891,
+      "macro_f1_std": 0.0254,
+      "brier_score_mean": 0.1142,
+      "brier_score_std": 0.0214,
+      "ece_mean": 0.0571,
+      "ece_std": 0.0107,
+      "mean_confidence_mean": 0.9998,
+      "mean_confidence_std": 0.0004,
+      "training_time_seconds": 0.197
+    },
+    "LightGBM_Clean": {
+      "top1_accuracy_mean": 0.9871,
+      "top1_accuracy_std": 0.0035,
+      "top3_accuracy_mean": 0.998,
+      "top3_accuracy_std": 0.0022,
+      "macro_f1_mean": 0.9725,
+      "macro_f1_std": 0.0145,
+      "brier_score_mean": 0.0227,
+      "brier_score_std": 0.0055,
+      "ece_mean": 0.0121,
+      "ece_std": 0.0031,
+      "mean_confidence_mean": 0.9966,
+      "mean_confidence_std": 0.001,
+      "training_time_seconds": 3.474
+    },
+    "LightGBM_Masked": {
+      "top1_accuracy_mean": 0.9779,
+      "top1_accuracy_std": 0.0058,
+      "top3_accuracy_mean": 0.994,
+      "top3_accuracy_std": 0.0018,
+      "macro_f1_mean": 0.906,
+      "macro_f1_std": 0.0122,
+      "brier_score_mean": 0.0352,
+      "brier_score_std": 0.0099,
+      "ece_mean": 0.0111,
+      "ece_std": 0.0021,
+      "mean_confidence_mean": 0.9785,
+      "mean_confidence_std": 0.0026,
+      "training_time_seconds": 2.492
     },
     "Random_Forest_Default": {
-      "top1_accuracy_mean": 0.9927419354838708,
-      "top1_accuracy_std": 0.003515241083500525,
+      "top1_accuracy_mean": 0.9911,
+      "top1_accuracy_std": 0.0033,
       "top3_accuracy_mean": 1.0,
       "top3_accuracy_std": 0.0,
-      "macro_f1_mean": 0.9742641086293693,
-      "macro_f1_std": 0.010765473807468858,
-      "brier_score_mean": 0.030953709677419356,
-      "brier_score_std": 0.0033457161016874288,
-      "ece_mean": 0.08035887096774195,
-      "ece_std": 0.004135854683692398,
-      "training_time_seconds": 1.61
+      "macro_f1_mean": 0.9683,
+      "macro_f1_std": 0.0139,
+      "brier_score_mean": 0.0308,
+      "brier_score_std": 0.0041,
+      "ece_mean": 0.0776,
+      "ece_std": 0.0024,
+      "mean_confidence_mean": 0.9138,
+      "mean_confidence_std": 0.0022,
+      "training_time_seconds": 1.626
     },
-    "LightGBM_Default": {
-      "top1_accuracy_mean": 0.9911290322580644,
-      "top1_accuracy_std": 0.003739362296570828,
-      "top3_accuracy_mean": 0.9991935483870968,
-      "top3_accuracy_std": 0.00161290322580645,
-      "macro_f1_mean": 0.9785708029170651,
-      "macro_f1_std": 0.015538695250856641,
-      "brier_score_mean": 0.017326316228566657,
-      "brier_score_std": 0.007906451135297428,
-      "ece_mean": 0.009250184368016643,
-      "ece_std": 0.005313607429904771,
-      "training_time_seconds": 3.593
-    },
-    "Random_Forest_Tuned_Clean_CV": {
-      "top1_accuracy_mean": 0.9931,
-      "top1_accuracy_std": 0.0027,
+    "Random_Forest_Tuned_Clean": {
+      "top1_accuracy_mean": 0.9923,
+      "top1_accuracy_std": 0.002,
       "top3_accuracy_mean": 1.0,
       "top3_accuracy_std": 0.0,
-      "macro_f1_mean": 0.9779,
-      "macro_f1_std": 0.0069,
-      "brier_score_mean": 0.0317,
-      "brier_score_std": 0.0033,
-      "ece_mean": 0.0851,
-      "ece_std": 0.0041,
-      "training_time_seconds": 1.42
+      "macro_f1_mean": 0.972,
+      "macro_f1_std": 0.0126,
+      "brier_score_mean": 0.0325,
+      "brier_score_std": 0.0042,
+      "ece_mean": 0.0844,
+      "ece_std": 0.003,
+      "mean_confidence_mean": 0.9089,
+      "mean_confidence_std": 0.0023,
+      "training_time_seconds": 0.66
     },
-    "Random_Forest_Tuned_Masked_Prod_CV": {
-      "top1_accuracy_mean": 0.9875,
-      "top1_accuracy_std": 0.0039,
-      "top3_accuracy_mean": 1.0,
-      "top3_accuracy_std": 0.0,
-      "macro_f1_mean": 0.9517,
-      "macro_f1_std": 0.0119,
-      "brier_score_mean": 0.0626,
-      "brier_score_std": 0.0064,
-      "ece_mean": 0.1345,
-      "ece_std": 0.0034,
-      "training_time_seconds": 2.15
+    "Random_Forest_Tuned_Masked": {
+      "top1_accuracy_mean": 0.9863,
+      "top1_accuracy_std": 0.0059,
+      "top3_accuracy_mean": 0.9992,
+      "top3_accuracy_std": 0.001,
+      "macro_f1_mean": 0.9475,
+      "macro_f1_std": 0.0125,
+      "brier_score_mean": 0.0657,
+      "brier_score_std": 0.0078,
+      "ece_mean": 0.1359,
+      "ece_std": 0.0022,
+      "mean_confidence_mean": 0.8506,
+      "mean_confidence_std": 0.0049,
+      "training_time_seconds": 0.879
     }
   },
   "permutation_importance": {
     "Phosphorous": {
-      "mean_accuracy_drop": 0.43774,
-      "std": 0.01447
+      "mean_accuracy_drop": 0.4377,
+      "std": 0.0145
     },
     "Potassium": {
-      "mean_accuracy_drop": 0.20484,
-      "std": 0.00703
+      "mean_accuracy_drop": 0.2048,
+      "std": 0.007
     },
     "PH": {
-      "mean_accuracy_drop": 0.19016,
-      "std": 0.01166
+      "mean_accuracy_drop": 0.1902,
+      "std": 0.0117
     },
     "Carbon": {
-      "mean_accuracy_drop": 0.16839,
-      "std": 0.01356
+      "mean_accuracy_drop": 0.1684,
+      "std": 0.0136
     },
     "Moisture": {
-      "mean_accuracy_drop": 0.12839,
-      "std": 0.00807
+      "mean_accuracy_drop": 0.1284,
+      "std": 0.0081
     },
     "Nitrogen": {
-      "mean_accuracy_drop": 0.09371,
-      "std": 0.00391
+      "mean_accuracy_drop": 0.0937,
+      "std": 0.0039
     },
     "Soil_encoded": {
-      "mean_accuracy_drop": 0.04887,
-      "std": 0.00433
+      "mean_accuracy_drop": 0.0489,
+      "std": 0.0043
     },
     "Temperature": {
-      "mean_accuracy_drop": 0.00258,
-      "std": 0.00079
+      "mean_accuracy_drop": 0.0026,
+      "std": 0.0008
     },
     "Rainfall": {
-      "mean_accuracy_drop": 0.00016,
-      "std": 0.00048
+      "mean_accuracy_drop": 0.0002,
+      "std": 0.0005
     },
     "Crop_encoded": {
       "mean_accuracy_drop": -0.0,
-      "std": 0.00144
+      "std": 0.0014
     }
   },
   "lofo_ablation": {
     "Temperature": {
       "omitted_feature": "Temperature",
-      "top1_accuracy": 0.9871,
-      "macro_f1": 0.952,
-      "accuracy_drop": 0.0
+      "top1_accuracy": 0.9952,
+      "macro_f1": 0.9851,
+      "accuracy_drop": -0.0081
     },
     "Moisture": {
       "omitted_feature": "Moisture",
-      "top1_accuracy": 0.9226,
-      "macro_f1": 0.7949,
-      "accuracy_drop": 0.0645
+      "top1_accuracy": 0.9355,
+      "macro_f1": 0.8304,
+      "accuracy_drop": 0.0516
     },
     "Rainfall": {
       "omitted_feature": "Rainfall",
-      "top1_accuracy": 0.9871,
-      "macro_f1": 0.9522,
-      "accuracy_drop": 0.0
+      "top1_accuracy": 0.9952,
+      "macro_f1": 0.9851,
+      "accuracy_drop": -0.0081
     },
     "PH": {
       "omitted_feature": "PH",
       "top1_accuracy": 0.9339,
-      "macro_f1": 0.8037,
+      "macro_f1": 0.7999,
       "accuracy_drop": 0.0532
     },
     "Nitrogen": {
       "omitted_feature": "Nitrogen",
-      "top1_accuracy": 0.9355,
-      "macro_f1": 0.8435,
-      "accuracy_drop": 0.0516
+      "top1_accuracy": 0.9435,
+      "macro_f1": 0.8558,
+      "accuracy_drop": 0.0435
     },
     "Phosphorous": {
       "omitted_feature": "Phosphorous",
-      "top1_accuracy": 0.8113,
-      "macro_f1": 0.7888,
-      "accuracy_drop": 0.1758
+      "top1_accuracy": 0.8177,
+      "macro_f1": 0.8239,
+      "accuracy_drop": 0.1694
     },
     "Potassium": {
       "omitted_feature": "Potassium",
-      "top1_accuracy": 0.8935,
-      "macro_f1": 0.8197,
-      "accuracy_drop": 0.0935
+      "top1_accuracy": 0.9032,
+      "macro_f1": 0.8435,
+      "accuracy_drop": 0.0839
     },
     "Carbon": {
       "omitted_feature": "Carbon",
-      "top1_accuracy": 0.8629,
-      "macro_f1": 0.7827,
-      "accuracy_drop": 0.1242
+      "top1_accuracy": 0.8758,
+      "macro_f1": 0.8169,
+      "accuracy_drop": 0.1113
     },
     "Soil_encoded": {
       "omitted_feature": "Soil_encoded",
-      "top1_accuracy": 0.9806,
-      "macro_f1": 0.8971,
-      "accuracy_drop": 0.0065
+      "top1_accuracy": 0.9855,
+      "macro_f1": 0.9332,
+      "accuracy_drop": 0.0016
     },
     "Crop_encoded": {
       "omitted_feature": "Crop_encoded",
-      "top1_accuracy": 0.9919,
-      "macro_f1": 0.9695,
-      "accuracy_drop": -0.0048
+      "top1_accuracy": 0.9935,
+      "macro_f1": 0.9832,
+      "accuracy_drop": -0.0065
     }
   },
   "ablation_study": {
-    "soil_and_crop_only": {
-      "features_used": [
+    "soil_and_crop": {
+      "subset_name": "Soil + Crop",
+      "subset_key": "soil_and_crop",
+      "feature_count": 2,
+      "features": [
         "Soil_encoded",
         "Crop_encoded"
       ],
-      "feature_count": 2,
-      "top1_accuracy": 0.4839,
-      "top3_accuracy": 0.8258,
-      "macro_f1": 0.2603
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.4629,
+        "top3_accuracy": 0.7984,
+        "macro_f1": 0.1907
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.4839,
+        "top3_accuracy": 0.829,
+        "macro_f1": 0.247
+      }
     },
-    "npk_only": {
-      "features_used": [
+    "soil_crop_npk": {
+      "subset_name": "+N/P/K",
+      "subset_key": "soil_crop_npk",
+      "feature_count": 5,
+      "features": [
         "Soil_encoded",
         "Crop_encoded",
         "Nitrogen",
         "Phosphorous",
         "Potassium"
       ],
-      "feature_count": 5,
-      "top1_accuracy": 0.7516,
-      "top3_accuracy": 0.9629,
-      "macro_f1": 0.5448
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.7516,
+        "top3_accuracy": 0.9694,
+        "macro_f1": 0.513
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.7403,
+        "top3_accuracy": 0.9645,
+        "macro_f1": 0.5329
+      }
     },
-    "environmental_only": {
-      "features_used": [
-        "Soil_encoded",
-        "Crop_encoded",
-        "Temperature",
-        "Moisture",
-        "Rainfall",
-        "PH"
-      ],
+    "soil_crop_pk_ph_carbon": {
+      "subset_name": "{Soil, Crop, P, K, pH, Carbon}",
+      "subset_key": "soil_crop_pk_ph_carbon",
       "feature_count": 6,
-      "top1_accuracy": 0.5774,
-      "top3_accuracy": 0.9,
-      "macro_f1": 0.4259
-    },
-    "npk_and_ph": {
-      "features_used": [
-        "Soil_encoded",
-        "Crop_encoded",
-        "Nitrogen",
-        "Phosphorous",
-        "Potassium",
-        "PH"
-      ],
-      "feature_count": 6,
-      "top1_accuracy": 0.8145,
-      "top3_accuracy": 0.9903,
-      "macro_f1": 0.7067
-    },
-    "minimal_95pct_suite": {
-      "features_used": [
+      "features": [
         "Soil_encoded",
         "Crop_encoded",
         "Phosphorous",
@@ -299,13 +336,22 @@
         "PH",
         "Carbon"
       ],
-      "feature_count": 6,
-      "top1_accuracy": 0.8677,
-      "top3_accuracy": 0.9806,
-      "macro_f1": 0.6782
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.8597,
+        "top3_accuracy": 0.9613,
+        "macro_f1": 0.5762
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.871,
+        "top3_accuracy": 0.9919,
+        "macro_f1": 0.7016
+      }
     },
-    "full_features": {
-      "features_used": [
+    "all_10_features": {
+      "subset_name": "All 10 Features",
+      "subset_key": "all_10_features",
+      "feature_count": 10,
+      "features": [
         "Temperature",
         "Moisture",
         "Rainfall",
@@ -317,10 +363,16 @@
         "Soil_encoded",
         "Crop_encoded"
       ],
-      "feature_count": 10,
-      "top1_accuracy": 0.9871,
-      "top3_accuracy": 1.0,
-      "macro_f1": 0.9431
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.9871,
+        "top3_accuracy": 1.0,
+        "macro_f1": 0.9431
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.9935,
+        "top3_accuracy": 1.0,
+        "macro_f1": 0.9769
+      }
     }
   },
   "measurement_noise_robustness": {
@@ -595,5 +647,319 @@
       "ece": 0.0593,
       "avg_confidence": 0.449
     }
-  }
+  },
+  "clean_holdout_comparison": {
+    "Majority_Class_Baseline": {
+      "top1_accuracy": 0.3403,
+      "top3_accuracy": 0.6081,
+      "macro_f1": 0.0508,
+      "brier_score": 1.3194,
+      "expected_calibration_error": 0.6597,
+      "mean_confidence": 1.0
+    },
+    "Logistic_Regression": {
+      "top1_accuracy": 0.7984,
+      "top3_accuracy": 0.971,
+      "macro_f1": 0.6833,
+      "brier_score": 0.2958,
+      "expected_calibration_error": 0.0759,
+      "mean_confidence": 0.7455
+    },
+    "Decision_Tree_Clean": {
+      "top1_accuracy": 0.9919,
+      "top3_accuracy": 0.9968,
+      "macro_f1": 0.9746,
+      "brier_score": 0.0161,
+      "expected_calibration_error": 0.0081,
+      "mean_confidence": 1.0
+    },
+    "Decision_Tree_Masked": {
+      "top1_accuracy": 0.9677,
+      "top3_accuracy": 0.9871,
+      "macro_f1": 0.9324,
+      "brier_score": 0.0645,
+      "expected_calibration_error": 0.0323,
+      "mean_confidence": 1.0
+    },
+    "LightGBM_Clean": {
+      "top1_accuracy": 0.9871,
+      "top3_accuracy": 1.0,
+      "macro_f1": 0.9873,
+      "brier_score": 0.02,
+      "expected_calibration_error": 0.0109,
+      "mean_confidence": 0.9966
+    },
+    "LightGBM_Masked": {
+      "top1_accuracy": 0.9774,
+      "top3_accuracy": 0.9935,
+      "macro_f1": 0.9092,
+      "brier_score": 0.0321,
+      "expected_calibration_error": 0.0082,
+      "mean_confidence": 0.9809
+    },
+    "Random_Forest_Default": {
+      "top1_accuracy": 0.9952,
+      "top3_accuracy": 1.0,
+      "macro_f1": 0.9861,
+      "brier_score": 0.0258,
+      "expected_calibration_error": 0.0721,
+      "mean_confidence": 0.923
+    },
+    "Random_Forest_Tuned_Clean": {
+      "top1_accuracy": 0.9935,
+      "top3_accuracy": 1.0,
+      "macro_f1": 0.9769,
+      "brier_score": 0.0263,
+      "expected_calibration_error": 0.0733,
+      "mean_confidence": 0.9215
+    },
+    "Random_Forest_Tuned_Masked": {
+      "top1_accuracy": 0.9823,
+      "top3_accuracy": 0.9984,
+      "macro_f1": 0.9218,
+      "brier_score": 0.0538,
+      "expected_calibration_error": 0.1144,
+      "mean_confidence": 0.8688
+    }
+  },
+  "missing_input_comparison": {
+    "Majority_Class_Baseline": {
+      "top1_accuracy": 0.3403,
+      "top3_accuracy": 0.6081,
+      "macro_f1": 0.0508,
+      "brier_score": 1.3194,
+      "expected_calibration_error": 0.6597,
+      "mean_confidence": 1.0
+    },
+    "Logistic_Regression": {
+      "top1_accuracy": 0.1935,
+      "top3_accuracy": 0.6629,
+      "macro_f1": 0.0441,
+      "brier_score": 0.8956,
+      "expected_calibration_error": 0.188,
+      "mean_confidence": 0.3815
+    },
+    "Decision_Tree_Clean": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.2984,
+      "macro_f1": 0.0358,
+      "brier_score": 1.5645,
+      "expected_calibration_error": 0.7823,
+      "mean_confidence": 1.0
+    },
+    "Decision_Tree_Masked": {
+      "top1_accuracy": 0.4887,
+      "top3_accuracy": 0.8226,
+      "macro_f1": 0.2504,
+      "brier_score": 0.667,
+      "expected_calibration_error": 0.0623,
+      "mean_confidence": 0.5509
+    },
+    "LightGBM_Clean": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.6677,
+      "macro_f1": 0.0358,
+      "brier_score": 1.5645,
+      "expected_calibration_error": 0.7823,
+      "mean_confidence": 1.0
+    },
+    "LightGBM_Masked": {
+      "top1_accuracy": 0.4984,
+      "top3_accuracy": 0.8419,
+      "macro_f1": 0.2638,
+      "brier_score": 0.646,
+      "expected_calibration_error": 0.0352,
+      "mean_confidence": 0.5296
+    },
+    "Random_Forest_Default": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.3774,
+      "macro_f1": 0.0358,
+      "brier_score": 1.5032,
+      "expected_calibration_error": 0.7496,
+      "mean_confidence": 0.9673
+    },
+    "Random_Forest_Tuned_Clean": {
+      "top1_accuracy": 0.2177,
+      "top3_accuracy": 0.5532,
+      "macro_f1": 0.0358,
+      "brier_score": 1.5092,
+      "expected_calibration_error": 0.7537,
+      "mean_confidence": 0.9715
+    },
+    "Random_Forest_Tuned_Masked": {
+      "top1_accuracy": 0.4629,
+      "top3_accuracy": 0.8081,
+      "macro_f1": 0.1907,
+      "brier_score": 0.6843,
+      "expected_calibration_error": 0.0496,
+      "mean_confidence": 0.444
+    }
+  },
+  "reliability_diagram": {
+    "image_path": "docs/images/reliability.png",
+    "clean_curve": {
+      "confs": [
+        0.2972,
+        0.3617,
+        0.4617,
+        0.546,
+        0.6617,
+        0.7509,
+        0.8537,
+        0.9606
+      ],
+      "accs": [
+        0.0,
+        0.75,
+        0.5833,
+        0.8,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "counts": [
+        1,
+        4,
+        12,
+        20,
+        27,
+        81,
+        136,
+        339
+      ]
+    },
+    "soil_crop_curve": {
+      "confs": [
+        0.2647,
+        0.3466,
+        0.4696,
+        0.5569,
+        0.6085
+      ],
+      "accs": [
+        0.2222,
+        0.3,
+        0.4896,
+        0.6406,
+        0.75
+      ],
+      "counts": [
+        81,
+        130,
+        241,
+        128,
+        40
+      ]
+    },
+    "unmasked_soil_crop_curve": {
+      "confs": [
+        0.8833,
+        0.988
+      ],
+      "accs": [
+        0.0306,
+        0.2529
+      ],
+      "counts": [
+        98,
+        522
+      ]
+    }
+  },
+  "ablation_timestamp": "2026-10-22T17:52:38.557152+00:00",
+  "ablation_table": [
+    {
+      "subset_name": "Soil + Crop",
+      "subset_key": "soil_and_crop",
+      "feature_count": 2,
+      "features": [
+        "Soil_encoded",
+        "Crop_encoded"
+      ],
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.4629,
+        "top3_accuracy": 0.7984,
+        "macro_f1": 0.1907
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.4839,
+        "top3_accuracy": 0.829,
+        "macro_f1": 0.247
+      }
+    },
+    {
+      "subset_name": "+N/P/K",
+      "subset_key": "soil_crop_npk",
+      "feature_count": 5,
+      "features": [
+        "Soil_encoded",
+        "Crop_encoded",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium"
+      ],
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.7516,
+        "top3_accuracy": 0.9694,
+        "macro_f1": 0.513
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.7403,
+        "top3_accuracy": 0.9645,
+        "macro_f1": 0.5329
+      }
+    },
+    {
+      "subset_name": "{Soil, Crop, P, K, pH, Carbon}",
+      "subset_key": "soil_crop_pk_ph_carbon",
+      "feature_count": 6,
+      "features": [
+        "Soil_encoded",
+        "Crop_encoded",
+        "Phosphorous",
+        "Potassium",
+        "PH",
+        "Carbon"
+      ],
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.8597,
+        "top3_accuracy": 0.9613,
+        "macro_f1": 0.5762
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.871,
+        "top3_accuracy": 0.9919,
+        "macro_f1": 0.7016
+      }
+    },
+    {
+      "subset_name": "All 10 Features",
+      "subset_key": "all_10_features",
+      "feature_count": 10,
+      "features": [
+        "Temperature",
+        "Moisture",
+        "Rainfall",
+        "PH",
+        "Nitrogen",
+        "Phosphorous",
+        "Potassium",
+        "Carbon",
+        "Soil_encoded",
+        "Crop_encoded"
+      ],
+      "method_a_deployed_imputed": {
+        "top1_accuracy": 0.9871,
+        "top3_accuracy": 1.0,
+        "macro_f1": 0.9431
+      },
+      "method_b_retrained_subset": {
+        "top1_accuracy": 0.9935,
+        "top3_accuracy": 1.0,
+        "macro_f1": 0.9769
+      }
+    }
+  ]
 }
