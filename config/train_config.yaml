@@ -26,6 +26,10 @@ optuna:
   n_trials: 30
   timeout_seconds: 120
 
+masking:
+  enabled: true
+  mask_prob: 0.35
+
 ablation:
   subsets:
     soil_and_crop_only:
@@ -44,6 +48,20 @@ ablation:
       - Moisture
       - Rainfall
       - PH
+    npk_and_ph:
+      - Soil_encoded
+      - Crop_encoded
+      - Nitrogen
+      - Phosphorous
+      - Potassium
+      - PH
+    minimal_95pct_suite:
+      - Soil_encoded
+      - Crop_encoded
+      - Phosphorous
+      - Potassium
+      - PH
+      - Carbon
     full_features:
       - Temperature
       - Moisture
@@ -56,5 +74,5 @@ ablation:
       - Soil_encoded
       - Crop_encoded
 
-noise_robustness:
+measurement_noise:
   noise_levels: [0.05, 0.10, 0.20]

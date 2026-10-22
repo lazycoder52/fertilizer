@@ -28,6 +28,11 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     # Core Configurations
     app.config["SECRET_KEY"] = config.secret_key
+    app.config["RATELIMIT_ENABLED"] = (
+        config.ratelimit_enabled
+        if hasattr(config, "ratelimit_enabled")
+        else __import__("os").environ.get("RATELIMIT_ENABLED", "true").lower() in ("true", "1")
+    )
     app.config["SWAGGER"] = {
         "title": "Fertilizer Recommendation API",
         "uiversion": 3,

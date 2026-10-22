@@ -81,7 +81,7 @@ def run_dataset_audit(data_path: str = "fertilizer_recommendation_dataset.csv") 
         "synthetic_data_indicator": {
             "is_likely_synthetic": len(negative_values) > 0 or exact_duplicates == 0,
             "reasons": [
-                f"Negative sensor values detected in physical metrics: {list(negative_values.keys())}",
+                f"Negative values detected in physical soil/weather metrics: {list(negative_values.keys())}",
                 "Sharp deterministic decision tree boundaries at round numbers (50 N, 50 P, 50 K, 6.0 pH)",
                 "Remark column shows 1-to-1 deterministic correspondence with fertilizer classes",
             ],

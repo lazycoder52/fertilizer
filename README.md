@@ -1,37 +1,40 @@
 # Production-Grade Fertilizer Recommendation System
 
 [![CI Pipeline](https://github.com/lazycoder52/fertilizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lazycoder52/fertilizer/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-88.86%25-brightgreen.svg)](https://github.com/lazycoder52/fertilizer)
+[![Coverage](https://img.shields.io/badge/Coverage-89.18%25-brightgreen.svg)](https://github.com/lazycoder52/fertilizer)
 [![Python Version](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![Code Style](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Security Audit](https://img.shields.io/badge/Security-pip--audit%20Passed-success.svg)](https://pypi.org/project/pip-audit/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](Dockerfile)
+[![Docker](https://img.shields.io/badge/Docker-Verified%20in%20CI-2496ED.svg?logo=docker&logoColor=white)](Dockerfile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An enterprise-ready, machine-learning-powered fertilizer recommendation system engineered with agronomic rigor, TreeSHAP explainability, Pydantic v2 input contracts, sub-100ms latency, and automated continuous integration quality gates.
+An enterprise-ready, machine-learning-powered fertilizer recommendation system engineered with agronomic rigor, TreeSHAP explainability, Pydantic v2 input contracts, lean multi-stage Docker containerization, and automated CI quality gates.
+
+> [!NOTE]
+> **Dataset Provenance & Framing**: The model is trained and evaluated on a **synthetic benchmark dataset** (`fertilizer_recommendation_dataset.csv`). As revealed during the empirical data audit, the dataset features rule-generated rectangular decision boundaries. High accuracy scores reflect the model learning these underlying deterministic partitions rather than human biological complexity. See the [Data Card](docs/DATA_CARD.md) and [Model Card](docs/MODEL_CARD.md) for full audit documentation.
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The application is structured into decoupled modules following clean architecture patterns:
+The application is structured into decoupled modules following clean architecture and production ML patterns:
 
 ```mermaid
 graph TD
-    User([Agronomist / Farmer Browser]) -->|HTTP / REST| NGINX[Reverse Proxy / Cloud Ingress]
-    NGINX -->|Port 5000| Flask[Flask 3.1 App Factory]
+    User([Agronomist / Farmer Browser]) -->|HTTP / REST| Ingress[Reverse Proxy / Cloud Ingress]
+    Ingress -->|Port 5000| Flask[Flask 3.1 App Factory]
     
     subgraph Middleware & Security
         Flask --> Limiter[Flask-Limiter\n60 req/min predict]
-        Flask --> Logger[Structured JSON Logger\nRequest ID Telemetry]
+        Flask --> Logger[Structured JSON Logger\nRequest ID Tracing]
         Flask --> Pydantic[Pydantic v2 Contracts\nAgronomic Physical Bounds]
     end
     
     subgraph Domain Services Singleton
         Pydantic --> ModelService[ModelService Singleton]
-        ModelService --> Joblib[Optimized Joblib Model\n125 Trees, Depth 16]
+        ModelService --> Joblib[Optimized Joblib Model\nRandom Forest 75 Trees, Depth 13]
         ModelService --> TreeSHAP[TreeSHAP Explainer\nReal-Time Local Attribution]
-        ModelService --> Imputer[Intelligent Median Imputer\nPartial Telemetry Support]
+        ModelService --> Imputer[Benchmark Median Imputer\n+ Low-Confidence Warning]
     end
     
     subgraph Response Generation
@@ -46,65 +49,86 @@ graph TD
 
 ---
 
-## ⚡ Key Highlights & Features
+## ⚡ Key Highlights & ML Rigor
 
-- **Empirically Validated ML Rigor**: Optuna Bayesian-tuned Random Forest achieving **$99.52\%$ Top-1 holdout accuracy**, **$100.0\%$ Top-3 accuracy**, and **$0.0298$ Brier calibration score**.
-- **Real-Time TreeSHAP Explainability**: Returns quantitative Shapley feature contributions via `/api/v1/explain` and visualizes them on the frontend "Why this?" contribution panel.
-- **Pydantic v2 Validation Contracts**: Enforces strict physical sensor bounds (e.g., $0 \le \text{pH} \le 14$, non-negative moisture, N/P/K and rainfall) preventing unphysical input corruption.
-- **Frictionless Partial Inputs**: Accepts minimum input (Soil + Crop) and transparently imputes missing continuous telemetry using training distribution medians.
-- **Interactive OpenAPI 3.0 Documentation**: Live Swagger UI accessible at `/apidocs/` with testable schema specifications.
-- **Enterprise Observability**: Structured JSON logging with `X-Request-ID` distributed tracing, endpoint latencies, and operational `/api/v1/metrics`.
-- **Automated CI Quality Gate**: GitHub Actions runs `ruff check`, `ruff format`, `pip-audit`, and fails PRs if coverage drops below $80\%$ or model Macro-F1 drops below $0.95$.
-- **Production Containerization**: Multi-stage `Dockerfile` executing as an unprivileged non-root user (`appuser`), OpenMP libraries, and integrated Docker healthcheck probe.
-
----
-
-## 📊 Model Evaluation & Baseline Benchmarks
-
-All models were evaluated under identical conditions using **Stratified 5-Fold Cross-Validation** ($N=3,100$) and an independent $20\%$ holdout test split ($N=620$):
-
-| Model | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Brier Score | Training Time |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Zero-Rule Majority Baseline** | $34.00\%$ | $60.74\%$ | $0.0507$ | $1.3200$ | $0.02\text{s}$ |
-| **Logistic Regression (Standardized)** | $80.45\%$ | $98.03\%$ | $0.6903$ | $0.2929$ | $0.18\text{s}$ |
-| **Decision Tree (CART)** | $99.39\%$ | $99.61\%$ | $0.9763$ | $0.0123$ | $0.10\text{s}$ |
-| **Random Forest (Default)** | $99.35\%$ | $100.0\%$ | $0.9795$ | $0.0258$ | $2.04\text{s}$ |
-| **LightGBM (Gradient Boosting)** | $99.16\%$ | $99.97\%$ | $0.9862$ | $0.0155$ | $3.60\text{s}$ |
-| **Optuna Tuned Random Forest (Production)** | **$99.52\%$** | **$100.0\%$** | **$0.9851$** | **$0.0298$** | $1.85\text{s}$ |
-
-> Detailed provenance, synthetic artifact analysis, and sensor ablation numbers are documented in the [Data Card](docs/DATA_CARD.md) and [Model Card](docs/MODEL_CARD.md).
+- **Empirical Data Audit as an ML Signal**:
+  - Identified data flaws in the raw benchmark: negative physical values (minimum rainfall $-85.7\text{ mm}$, minimum phosphorus $-37.6\text{ kg/ha}$), 1-to-1 deterministic correspondence between `Remark` and target classes, and sharp rectangular boundaries.
+  - **Zero Target Leakage Verified**: `Remark` is strictly excluded from feature vectors during training and inference (`assert "Remark" not in feature_cols`).
+  - Added Pydantic v2 boundary enforcement to reject unphysical inputs at the API gateway.
+- **Realistic Model Selection & Evaluation**:
+  - Tuning (Optuna) and baseline cross-validation were conducted **strictly on the isolated 80% development split** ($N=2,480$).
+  - Decision Tree ($99.35\% \pm 0.35\%$), Random Forest ($99.27\% \pm 0.35\%$), and LightGBM ($99.11\% \pm 0.37\%$) perform within noise of each other. Random Forest was selected not under a claim of "beating" other tree models, but for **variance reduction, probability calibration stability, and native TreeSHAP explainability support**.
+- **Evaluated on Strict Untouched Holdout ($N=620$)**:
+  - Top-1 Accuracy: **$98.71\%$** | Top-3 Accuracy: **$100.00\%$** | Macro-F1: **$0.9431$** | Brier Score: **$0.0552$** | Expected Calibration Error (ECE): **$0.1209$**.
+- **Uncertainty & Calibration Under Missing Inputs**:
+  - Retrained with 35% random feature masking using development medians so the model outputs tempered probabilities (~45% confidence) when inputs are omitted.
+  - Returns a visible **"Low confidence: using default values for missing soil test parameters"** notice in the UI and API response whenever defaults are used.
+- **Finer Input Ablation & Sensitivity Analysis**:
+  - Soil & Crop alone achieves only **$48.39\%$ Top-1** ($82.58\%$ Top-3).
+  - NPK nutrients achieve **$75.16\%$ Top-1** ($96.29\%$ Top-3).
+  - Minimal high-confidence 6-feature suite (Soil, Crop, Phosphorus, Potassium, pH, Carbon) achieves **$86.77\%$ Top-1** ($98.06\%$ Top-3).
+  - Full soil test suite (10 features) reaches **$98.71\%$ Top-1** ($100.0\%$ Top-3).
+  - Leave-One-Feature-Out (LOFO) and Permutation Importance identify Phosphorus as the single most critical nutrient (omitting it drops accuracy by $17.58\%$).
+- **Real-Time TreeSHAP Explainability**: Returns exact Shapley feature attributions via `/api/v1/explain` and visualizes them on the frontend "Why this?" panel.
+- **Lean Runtime & Verified Containerization**: Production runtime dependencies (`requirements.txt`) are split from heavy training/dev dependencies (`requirements-dev.txt`), reducing image size and cold start. GitHub Actions verifies `docker build` and container healthcheck probe on every PR.
+- **Defensible Load Testing**: Tested with 50 concurrent virtual users under Locust; rate limiter bypassed via `--no-limiter` during benchmarking to measure raw server capacity without artificial 429 single-IP throttling.
 
 ---
 
-## 🚀 Performance & Locust Load Testing
+## 📊 Model Evaluation & Baseline Comparison (Development Split)
 
-Empirical load test conducted using [locustfile.py](locustfile.py) under concurrent agronomic user workflows (10 concurrent users, mixed traffic):
+Evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$), reported as mean $\pm$ standard deviation:
+
+| Model Candidate | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Brier Score | ECE | Train Time |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $60.73\% \pm 0.15\%$ | $0.0507 \pm 0.000$ | $1.3202 \pm 0.002$ | $0.6601$ | $0.02\text{s}$ |
+| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $98.15\% \pm 0.50\%$ | $0.6781 \pm 0.026$ | $0.2962 \pm 0.010$ | $0.0682$ | $0.15\text{s}$ |
+| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $99.56\% \pm 0.24\%$ | $0.9756 \pm 0.016$ | $0.0129 \pm 0.007$ | $0.0065$ | $0.06\text{s}$ |
+| **Random Forest (Default, 100 trees)** | $99.27\% \pm 0.35\%$ | $100.0\% \pm 0.00\%$ | $0.9743 \pm 0.011$ | $0.0310 \pm 0.003$ | $0.0804$ | $1.61\text{s}$ |
+| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $99.92\% \pm 0.16\%$ | $0.9786 \pm 0.016$ | $0.0173 \pm 0.008$ | $0.0093$ | $3.59\text{s}$ |
+| **Optuna Tuned RF (Selected Model)** | **$98.71\%$ (Holdout)** | **$100.0\%$ (Holdout)** | **$0.9431$** | **$0.0552$** | **$0.1209$** | $1.42\text{s}$ |
+
+> [!NOTE]
+> Detailed per-class precision/recall, calibration curves, Permutation Importance, and LOFO sensitivity tables are documented in the [Model Card](docs/MODEL_CARD.md).
+
+---
+
+## 🚀 Performance & Locust Load Testing (50 Concurrent Users)
+
+Empirical benchmark executed via [locustfile.py](locustfile.py) under 50 concurrent virtual users simulating mixed agronomic traffic.
+
+> **Test Configuration & Rate Limit Context**:
+> - Environment: Local development server (Windows, single Python process, `--no-limiter`). Under production Gunicorn (3 workers, 2 threads per worker on Linux/Docker container), requests are multiplexed across pre-forked worker pools.
+> - Rate Limiting: The production 60 req/min rate limiter was disabled (`--no-limiter` / `RATELIMIT_ENABLED=0`) for the benchmark run to evaluate underlying server and model throughput without artificial 429 throttling from a single loopback IP.
 
 | Endpoint / Scenario | Requests | Failures | Median ($p50$) | $p90$ | $p95$ | $p99$ | Throughput |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `GET /api/v1/health` | 7 | $0.00\%$ | **4 ms** | 8 ms | 8 ms | 8 ms | 0.50 req/s |
-| `GET /api/v1/info` | 7 | $0.00\%$ | **4 ms** | 9 ms | 9 ms | 9 ms | 0.50 req/s |
-| `GET /` (Web Interface) | 9 | $0.00\%$ | **5 ms** | 11 ms | 11 ms | 11 ms | 0.64 req/s |
-| `POST /api/v1/predict` (Full Sensors) | 31 | $0.00\%$ | **75 ms** | 110 ms | 130 ms | 170 ms | 2.21 req/s |
-| `POST /api/v1/predict` (Partial Telemetry) | 22 | $0.00\%$ | **75 ms** | 110 ms | 110 ms | 180 ms | 1.57 req/s |
-| `POST /api/v1/explain` (TreeSHAP) | 13 | $0.00\%$ | **79 ms** | 100 ms | 120 ms | 120 ms | 0.93 req/s |
-| **Aggregated Total** | **89** | **0.00%** | **71 ms** | **110 ms** | **120 ms** | **180 ms** | **6.34 req/s** |
+| `GET /api/v1/health` | 19 | $0.00\%$ | 2,100 ms | 2,100 ms | 2,100 ms | 2,100 ms | 0.97 req/s |
+| `GET /api/v1/info` | 19 | $0.00\%$ | 2,000 ms | 2,100 ms | 2,100 ms | 2,100 ms | 0.97 req/s |
+| `GET /` (Web Interface) | 48 | $0.00\%$ | 2,000 ms | 2,100 ms | 2,100 ms | 2,100 ms | 2.45 req/s |
+| `POST /api/v1/predict` (Full Soil Test) | 88 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,400 ms | 2,500 ms | 4.50 req/s |
+| `POST /api/v1/predict` (Partial / Imputed) | 44 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,500 ms | 2,500 ms | 2.25 req/s |
+| `POST /api/v1/explain` (TreeSHAP) | 26 | $0.00\%$ | 2,200 ms | 2,400 ms | 2,400 ms | 2,500 ms | 1.33 req/s |
+| **Aggregated Total** | **244** | **0.00%** | **2,100 ms** | **2,400 ms** | **2,400 ms** | **2,500 ms** | **12.47 req/s** |
 
 ---
 
 ## 🛠️ Quickstart Guide
 
-### Option A: Run with Docker Compose (Recommended)
+### Option A: Run with Docker (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/lazycoder52/fertilizer.git
 cd fertilizer
 
-# Build and start the containerized service
-docker compose up --build
+# Build lean multi-stage production container
+docker build -t fertilizer-recommendation .
+
+# Run container with integrated healthcheck
+docker run -p 5000:5000 fertilizer-recommendation
 ```
-The application will be live at `http://localhost:5000` with Swagger docs at `http://localhost:5000/apidocs/`.
+The application will be live at `http://localhost:5000` with OpenAPI documentation at `http://localhost:5000/apidocs/`.
 
 ### Option B: Local Python Environment
 
@@ -113,124 +137,81 @@ The application will be live at `http://localhost:5000` with Swagger docs at `ht
 python -m venv myenv
 source myenv/bin/activate  # On Windows: .\myenv\Scripts\activate
 
-# 2. Install pinned dependencies
-pip install -r requirements.txt
+# 2. Install lean runtime dependencies (or requirements-dev.txt for training/testing)
+pip install -r requirements-dev.txt
 
-# 3. Run test suite and verify quality gates
-pytest -v
+# 3. Run test suite and verify CI quality gates (evaluates model.joblib against test_data.joblib)
+pytest -v --cov=src/fertilizer_app --cov-report=term-missing --cov-fail-under=80
 
-# 4. Start production WSGI server
-gunicorn --bind 0.0.0.0:5000 app:app
+# 4. Start local server
+python app.py
 ```
 
 ---
 
-## 📡 API Reference
-
-Interactive OpenAPI documentation is live at `/apidocs/`.
-
-### 1. Fertilizer Prediction: `POST /api/v1/predict`
-
-**Request Payload:**
-```json
-{
-  "Soil": "Loamy Soil",
-  "Crop": "wheat",
-  "Nitrogen": 45.0,
-  "Phosphorous": 55.0,
-  "Potassium": 40.0,
-  "PH": 6.5,
-  "Moisture": 0.60,
-  "Temperature": 28.0,
-  "Rainfall": 120.0,
-  "Carbon": 1.2
-}
-```
-
-**Response Payload (`200 OK`):**
-```json
-{
-  "success": true,
-  "recommendation": "DAP",
-  "confidence": 98.42,
-  "remark": "High phosphorus content helps root development. Ideal for early growth stages.",
-  "top_3_recommendations": [
-    {"fertilizer": "DAP", "confidence": 98.42, "remark": "..."},
-    {"fertilizer": "Balanced NPK Fertilizer", "confidence": 1.15, "remark": "..."},
-    {"fertilizer": "Urea", "confidence": 0.32, "remark": "..."}
-  ],
-  "explanation": {
-    "enabled": true,
-    "top_contributions": [
-      {"feature": "Phosphorous", "display_name": "Phosphorous", "value": 55.0, "impact": 0.4521, "direction": "positive"},
-      {"feature": "PH", "display_name": "Soil pH", "value": 6.5, "impact": 0.1235, "direction": "positive"}
-    ],
-    "positive_drivers": [...],
-    "negative_drivers": [...]
-  },
-  "input_received": {...}
-}
-```
-
-### 2. Feature Attribution: `POST /api/v1/explain`
-
-Computes localized TreeSHAP feature attributions for any arbitrary soil/crop combination without re-running the full frontend pipeline.
-
-### 3. Health & Readiness: `GET /api/v1/health`
-
-Returns `{"status": "healthy"}` for container orchestrator liveness and readiness probes.
-
-### 4. Model Metadata: `GET /api/v1/info`
-
-Returns supported soil types (5), crop types (31), fertilizer classes (10), and serialized model metadata.
-
----
-
-## 📂 Project Structure
+## 📁 Repository Structure
 
 ```
-fertilizer/
-├── .github/workflows/ci.yml       # GitHub Actions CI with Ruff, pip-audit & Pytest gates
+fertilizer-app/
+├── .github/workflows/
+│   └── ci.yml                     # Automated CI: Ruff, pip-audit, Pytest, Docker Build & Healthcheck
 ├── config/
-│   └── train_config.yaml          # Reproducible ML training configuration
+│   └── train_config.yaml          # Model training, Optuna, and ablation configuration
 ├── docs/
-│   ├── DATA_CARD.md               # Dataset provenance, schema & synthetic audit analysis
-│   └── MODEL_CARD.md              # Model architecture, benchmarks & ablation studies
+│   ├── DATA_CARD.md               # Empirical data audit, synthetic artifacts, agronomic limitations
+│   └── MODEL_CARD.md              # Model architecture, baseline comparisons, LOFO ablation, calibration
 ├── model_files/
-│   ├── model.joblib               # Compressed Random Forest model artifact (699 KB)
-│   ├── encoders.joblib            # Label encoders for Soil, Crop, and Fertilizer
-│   ├── features.joblib            # Feature list
-│   ├── fertilizer_descriptions.json # Agronomic rationale dictionary
-│   ├── metrics.json               # Full evaluation metrics & baseline comparisons
-│   └── model_metadata.json        # Production model metadata
+│   ├── model.joblib               # Production Random Forest classifier artifact
+│   ├── test_data.joblib           # Untouched holdout test split for CI quality gate
+│   ├── encoders.joblib            # Label encoders for Soil, Crop, Fertilizer
+│   ├── features.joblib            # Ordered feature column names
+│   ├── feature_medians.json       # Development distribution medians for imputation
+│   ├── fertilizer_descriptions.json # Agronomic advice remarks
+│   ├── metrics.json               # Full evaluation metrics, ablation results, and ECE
+│   └── model_metadata.json        # Production version metadata
 ├── src/
-│   ├── fertilizer_app/            # Application package
-│   │   ├── api/v1/routes.py       # Versioned API routes & telemetry
-│   │   ├── api/v1/schemas.py      # Pydantic v2 input/output validation contracts
-│   │   ├── core/config.py         # Environment-based configuration
-│   │   ├── core/logging.py        # Structured JSON logger & telemetry
-│   │   ├── services/model_service.py # Model inference singleton
-│   │   └── services/shap_service.py  # TreeSHAP feature attribution service
-│   └── ml/                        # ML pipeline package
-│       ├── audit.py               # Dataset audit & synthetic heuristic detector
-│       └── train_and_evaluate.py  # Optuna tuning, benchmarking & serialization
+│   ├── fertilizer_app/            # Application package (Factory pattern)
+│   │   ├── api/
+│   │   │   ├── v1/
+│   │   │   │   ├── routes.py      # Versioned API routes & rate limiting
+│   │   │   │   └── schemas.py     # Pydantic v2 validation contracts & imputation warning
+│   │   │   └── web.py             # Frontend web routes
+│   │   ├── core/
+│   │   │   ├── config.py          # Application configuration
+│   │   │   ├── limiter.py         # Flask-Limiter setup with bypass support
+│   │   │   └── logging.py         # Structured JSON logger & request tracing
+│   │   └── services/
+│   │       ├── model_service.py   # Thread-safe Singleton managing ML inference & imputation
+│   │       └── shap_service.py    # TreeSHAP feature attribution service
+│   └── ml/
+│       ├── audit.py               # Empirical dataset audit and data integrity checks
+│       └── train_and_evaluate.py  # Dev/holdout splitting, CV benchmarking, Optuna, masking, LOFO
 ├── templates/
-│   └── index.html                 # Responsive web UI with TreeSHAP 'Why this?' panel
+│   └── index.html                 # Modern glassmorphism UI with imputation warning banner & SHAP bars
 ├── tests/
-│   ├── test_api_v1.py             # Integration & endpoint regression tests
-│   ├── test_model_quality.py      # CI ML Quality Gate (assert macro_f1 >= 0.95)
-│   └── test_unit.py               # Unit tests for schemas, configs, and services
-├── Dockerfile                     # Multi-stage production container build
-├── docker-compose.yml             # Local container spin-up definition
-├── locustfile.py                  # Load testing simulation
-├── pyproject.toml                 # Ruff and test configuration
-├── pytest.ini                     # Pytest coverage gate configuration (>=80%)
-├── requirements.txt               # Pinned production dependencies
-└── app.py                         # WSGI application entrypoint
+│   ├── test_api_v1.py             # API route tests, validation bounds, imputation checks
+│   ├── test_model_quality.py      # CI Quality Gate: tests model.joblib against test_data.joblib
+│   └── test_unit.py               # Unit tests for schemas, services, config, and logging
+├── app.py                         # Application entrypoint (Procfile / Render target)
+├── Dockerfile                     # Multi-stage lean non-root Docker build
+├── locustfile.py                  # 50-user load testing scenario
+├── Procfile                       # Render deployment declaration (web: gunicorn app:app)
+├── render.yaml                    # Render infrastructure configuration
+├── requirements.txt               # Lean production runtime dependencies
+└── requirements-dev.txt           # Offline dev, training, CI, and testing tools
 ```
 
 ---
 
-## 📜 License
+## 🔒 Security & Code Quality
+
+- **Vulnerability Scanning**: Verified with `pip-audit` with zero known vulnerabilities.
+- **Static Analysis & Formatting**: Strictly checked with `ruff check .` and `ruff format .`.
+- **Non-Root Execution**: Docker container runs as unprivileged `appuser:appgroup` (UID 10001).
+- **Quality Gate**: PRs must pass all tests with $\ge 80\%$ code coverage and verify model holdout metrics on the untouched test split.
+
+---
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

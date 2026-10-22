@@ -74,6 +74,21 @@ def test_api_v1_predict_valid(client):
     assert "explanation" in data
     assert data["explanation"]["enabled"] is True
     assert len(data["explanation"]["top_contributions"]) > 0
+    assert data["is_imputed"] is False
+    assert data["warning"] is None
+
+
+def test_api_v1_predict_partial_imputation(client):
+    """Verify partial input returns is_imputed=True with visible low-confidence warning."""
+    payload = {"Soil": "Loamy Soil", "Crop": "Wheat"}
+    response = client.post("/api/v1/predict", json=payload)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["success"] is True
+    assert data["is_imputed"] is True
+    assert len(data["imputed_fields"]) == 8
+    assert data["warning"] is not None
+    assert "Low confidence" in data["warning"]
 
 
 def test_api_v1_explain_valid(client):
