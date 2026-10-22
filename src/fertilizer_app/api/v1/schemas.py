@@ -19,7 +19,10 @@ class PredictRequest(BaseModel):
     )
     Moisture: float | None = Field(
         default=None,
-        description="Soil moisture fraction (0.0 to 1.0) or percentage (0% to 100%)",
+        description=(
+            "Soil moisture value. Values in [0.0, 1.0] are treated as fractions (where 1.0 = 100%). "
+            "Values in (1.0, 100.0] are treated as percentages (e.g. 60 = 60%) and converted to fractions."
+        ),
     )
     Rainfall: float | None = Field(
         default=None,
