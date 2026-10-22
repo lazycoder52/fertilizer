@@ -204,22 +204,22 @@ Executed against the production Linux Docker container running multi-worker Guni
 Every figure in this document and throughout the repository is deterministically produced by offline scripts and written directly to `model_files/metrics.json`:
 
 ```bash
-# 1. Dataset audit and integrity checks (runtime: ~1s)
+# 1. Dataset audit and integrity checks (runtime: ~1s on a dev laptop)
 python -m src.ml.audit
 
-# 2. Multi-model 5-fold CV, clean holdout, and Soil+Crop holdout benchmarking + reliability diagram (runtime: ~15s)
+# 2. Multi-model 5-fold CV, clean holdout, and Soil+Crop holdout benchmarking + reliability diagram (runtime: ~13s on a dev laptop)
 python -m src.ml.robustness_eval
 
-# 3. Method A vs Method B ablation, LOFO drops, and permutation importance (runtime: ~5s)
+# 3. Method A vs Method B ablation, LOFO drops, and permutation importance (runtime: ~7s on a dev laptop)
 python -m src.ml.ablation
 
-# 4. Synchronize documentation markdown files from metrics.json (runtime: ~0.1s)
+# 4. Synchronize documentation markdown files from metrics.json (runtime: ~0.3s on a dev laptop)
 python -m src.ml.render_docs --check
 
-# 5. Parse Locust load test CSV stats into metrics.json (runtime: ~0.1s)
+# 5. Parse Locust load test CSV stats into metrics.json (runtime: ~0.5s on a dev laptop)
 python -m src.ml.load_test_summary
 
-# 6. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s)
+# 6. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s on a dev laptop)
 python -m src.ml.train_and_evaluate
 ```
 
