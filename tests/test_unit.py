@@ -308,8 +308,12 @@ class TestFeatureMasking:
         from src.ml.train_and_evaluate import create_mask_augmented_data
 
         x_df, y_ser, num_cols, medians = sample_data
-        aug_x1, aug_y1 = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
-        aug_x2, aug_y2 = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+        aug_x1, aug_y1 = create_mask_augmented_data(
+            x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35
+        )
+        aug_x2, aug_y2 = create_mask_augmented_data(
+            x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35
+        )
 
         assert aug_x1.equals(aug_x2)
         assert aug_y1.equals(aug_y2)
@@ -319,7 +323,9 @@ class TestFeatureMasking:
 
         x_df, y_ser, num_cols, medians = sample_data
         n = len(x_df)
-        aug_x, _ = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+        aug_x, _ = create_mask_augmented_data(
+            x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35
+        )
 
         # Variant 1 is the second block [n:2n]
         var1 = aug_x.iloc[n : 2 * n]
@@ -336,7 +342,9 @@ class TestFeatureMasking:
 
         x_df, y_ser, num_cols, medians = sample_data
         n = len(x_df)
-        aug_x, _ = create_mask_augmented_data(x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35)
+        aug_x, _ = create_mask_augmented_data(
+            x_df, y_ser, num_cols, medians, seed=42, mask_rate=0.35
+        )
 
         # Assert categorical columns Soil_encoded and Crop_encoded are strictly untouched across all 4 variants
         for i in range(4):
@@ -347,4 +355,3 @@ class TestFeatureMasking:
             assert (block["Crop_encoded"].values == x_df["Crop_encoded"].values).all(), (
                 f"Crop_encoded was modified in variant block {i}"
             )
-

@@ -96,7 +96,9 @@ def evaluate_predictions(
 
     if y_proba is not None and y_proba.shape[1] == num_classes:
         top3 = float(
-            top_k_accuracy_score(y_true, y_proba, k=min(3, num_classes), labels=np.arange(num_classes))
+            top_k_accuracy_score(
+                y_true, y_proba, k=min(3, num_classes), labels=np.arange(num_classes)
+            )
         )
         brier = float(multiclass_brier_score(y_true, y_proba, num_classes))
         ece = float(expected_calibration_error(y_true, y_proba))
@@ -204,7 +206,9 @@ def plot_reliability_diagram(
     acc_unmasked = float(accuracy_score(y_test, np.argmax(proba_unmasked_sc, axis=1)))
 
     plt.figure(figsize=(8, 7))
-    plt.plot([0, 1], [0, 1], "k--", label="Perfect Probability Match (y = x)", alpha=0.6, linewidth=1.5)
+    plt.plot(
+        [0, 1], [0, 1], "k--", label="Perfect Probability Match (y = x)", alpha=0.6, linewidth=1.5
+    )
 
     # Clean inputs: Production Model (under-confident)
     plt.plot(
@@ -264,7 +268,11 @@ def plot_reliability_diagram(
         "image_path": str(output_path).replace("\\", "/"),
         "clean_curve": {"confs": bc_clean, "accs": ba_clean, "counts": cnt_clean},
         "soil_crop_curve": {"confs": bc_sc, "accs": ba_sc, "counts": cnt_sc},
-        "unmasked_soil_crop_curve": {"confs": bc_unmasked, "accs": ba_unmasked, "counts": cnt_unmasked},
+        "unmasked_soil_crop_curve": {
+            "confs": bc_unmasked,
+            "accs": ba_unmasked,
+            "counts": cnt_unmasked,
+        },
     }
 
 
@@ -302,10 +310,17 @@ def run_robustness_evaluation(
     X_dev = X.drop(index=X_test.index)
     y_dev = y.drop(index=X_test.index)
 
-    logger.info("Reconstructed Development set: %d samples, Holdout: %d samples", len(X_dev), len(X_test))
+    logger.info(
+        "Reconstructed Development set: %d samples, Holdout: %d samples", len(X_dev), len(X_test)
+    )
 
     # Retrieve best RF hyperparameters from existing metrics.json or config default
-    best_rf_params = {"n_estimators": 75, "max_depth": 13, "min_samples_split": 5, "min_samples_leaf": 1}
+    best_rf_params = {
+        "n_estimators": 75,
+        "max_depth": 13,
+        "min_samples_split": 5,
+        "min_samples_leaf": 1,
+    }
     metrics_path = output_dir / "metrics.json"
     if metrics_path.exists():
         try:
@@ -363,7 +378,9 @@ def run_robustness_evaluation(
 
     # 1. Stratified 5-Fold CV on Development split
     logger.info("Executing 5-Fold Stratified CV across all 9 candidate models...")
-    cv = StratifiedKFold(n_splits=cfg["cross_validation"]["n_splits"], shuffle=True, random_state=seed)
+    cv = StratifiedKFold(
+        n_splits=cfg["cross_validation"]["n_splits"], shuffle=True, random_state=seed
+    )
     cv_results: dict[str, dict[str, float]] = {}
 
     for name, (factory, is_masked) in candidate_defs.items():
@@ -392,16 +409,24 @@ def run_robustness_evaluation(
     # 2. Fit models on full Development Split
     logger.info("Fitting candidate models on full Development split for holdout evaluation...")
     X_dev_aug, y_dev_aug = create_mask_augmented_data(
-        X_dev, y_dev, numerical_cols, feature_medians, seed=seed, mask_rate=cfg["masking"]["mask_prob"]
+        X_dev,
+        y_dev,
+        numerical_cols,
+        feature_medians,
+        seed=seed,
+        mask_rate=cfg["masking"]["mask_prob"],
     )
 
     fitted_models: dict[str, Any] = {}
     for name, (factory, is_masked) in candidate_defs.items():
-        clf = factory()
-        if is_masked:
-            clf.fit(X_dev_aug, y_dev_aug)
+        if name == "Random_Forest_Tuned_Masked" and (output_dir / "model.joblib").exists():
+            clf = joblib.load(output_dir / "model.joblib")
         else:
-            clf.fit(X_dev, y_dev)
+            clf = factory()
+            if is_masked:
+                clf.fit(X_dev_aug, y_dev_aug)
+            else:
+                clf.fit(X_dev, y_dev)
         fitted_models[name] = clf
 
     # 3. Clean Holdout Evaluation
@@ -425,7 +450,10 @@ def run_robustness_evaluation(
         )
 
     # 4. Missing Inputs Evaluation (Soil + Crop only, median-imputed)
-    logger.info("Evaluating all candidates on Soil + Crop only inputs (median-imputed, N=%d)...", len(X_test))
+    logger.info(
+        "Evaluating all candidates on Soil + Crop only inputs (median-imputed, N=%d)...",
+        len(X_test),
+    )
     X_test_sc = X_test.copy()
     for col in numerical_cols:
         X_test_sc[col] = feature_medians[col]
@@ -500,14 +528,20 @@ def run_robustness_evaluation(
             "holdout_evaluation": {
                 "test_size": 0.2,
                 "test_sample_count": len(X_test),
-                "top1_accuracy": clean_holdout_results["Random_Forest_Tuned_Masked"]["top1_accuracy"],
-                "top3_accuracy": clean_holdout_results["Random_Forest_Tuned_Masked"]["top3_accuracy"],
+                "top1_accuracy": clean_holdout_results["Random_Forest_Tuned_Masked"][
+                    "top1_accuracy"
+                ],
+                "top3_accuracy": clean_holdout_results["Random_Forest_Tuned_Masked"][
+                    "top3_accuracy"
+                ],
                 "macro_f1": clean_holdout_results["Random_Forest_Tuned_Masked"]["macro_f1"],
                 "brier_score": clean_holdout_results["Random_Forest_Tuned_Masked"]["brier_score"],
                 "expected_calibration_error": clean_holdout_results["Random_Forest_Tuned_Masked"][
                     "expected_calibration_error"
                 ],
-                "mean_confidence": clean_holdout_results["Random_Forest_Tuned_Masked"]["mean_confidence"],
+                "mean_confidence": clean_holdout_results["Random_Forest_Tuned_Masked"][
+                    "mean_confidence"
+                ],
             },
             "baseline_comparison": cv_results,
             "clean_holdout_comparison": clean_holdout_results,
@@ -521,7 +555,9 @@ def run_robustness_evaluation(
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics_data, f, indent=2)
 
-    logger.info("Successfully updated %s with reproducible evaluations across all 9 models.", metrics_path)
+    logger.info(
+        "Successfully updated %s with reproducible evaluations across all 9 models.", metrics_path
+    )
     return metrics_data
 
 
