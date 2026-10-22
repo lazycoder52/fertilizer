@@ -5,6 +5,7 @@ can ever pass CI or be deployed to production.
 Evaluates the actual serialized binary model directly against the untouched holdout split.
 """
 
+import json
 from pathlib import Path
 
 import joblib
@@ -161,3 +162,36 @@ def test_artifacts_exist_and_loadable():
     assert len(features) == 10
     assert (model_dir / "feature_medians.json").exists()
     assert (model_dir / "model_metadata.json").exists()
+
+
+def test_readme_numbers_match_metrics_json():
+    """Quality Gate: Assert key figures in README match metrics.json exactly."""
+    metrics_path = Path("model_files/metrics.json")
+    readme_path = Path("README.md")
+
+    assert metrics_path.exists(), "metrics.json missing"
+    assert readme_path.exists(), "README.md missing"
+
+    with open(metrics_path, encoding="utf-8") as f:
+        metrics = json.load(f)
+    with open(readme_path, encoding="utf-8") as f:
+        readme_text = f.read()
+
+    holdout = metrics["holdout_evaluation"]
+    top1 = holdout["top1_accuracy"]
+    top3 = holdout["top3_accuracy"]
+    f1 = holdout["macro_f1"]
+    ece = holdout["expected_calibration_error"]
+    sc_top1 = metrics["masked_input_evaluations"]["soil_and_crop_only"]["top1_accuracy"]
+
+    top1_str = f"{top1 * 100:.2f}%"
+    top3_str = f"{top3 * 100:.2f}%"
+    f1_str = f"{f1:.4f}"
+    ece_str = f"{ece:.4f}"
+    sc_top1_str = f"{sc_top1 * 100:.2f}%"
+
+    assert top1_str in readme_text, f"Top-1 {top1_str} not found in README.md"
+    assert top3_str in readme_text, f"Top-3 {top3_str} not found in README.md"
+    assert f1_str in readme_text, f"Macro-F1 {f1_str} not found in README.md"
+    assert ece_str in readme_text, f"ECE {ece_str} not found in README.md"
+    assert sc_top1_str in readme_text, f"Soil+Crop Top-1 {sc_top1_str} not found in README.md"

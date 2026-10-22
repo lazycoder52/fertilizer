@@ -76,7 +76,12 @@ def run_ablation_study(
     prod_model = joblib.load(output_dir / "model.joblib")
 
     # Hyperparameters
-    best_rf_params = {"n_estimators": 75, "max_depth": 13, "min_samples_split": 5, "min_samples_leaf": 1}
+    best_rf_params = {
+        "n_estimators": 75,
+        "max_depth": 13,
+        "min_samples_split": 5,
+        "min_samples_leaf": 1,
+    }
     metrics_path = output_dir / "metrics.json"
     if metrics_path.exists():
         try:
@@ -102,7 +107,14 @@ def run_ablation_study(
         {
             "name": "{Soil, Crop, P, K, pH, Carbon}",
             "key": "soil_crop_pk_ph_carbon",
-            "features": ["Soil_encoded", "Crop_encoded", "Phosphorous", "Potassium", "PH", "Carbon"],
+            "features": [
+                "Soil_encoded",
+                "Crop_encoded",
+                "Phosphorous",
+                "Potassium",
+                "PH",
+                "Carbon",
+            ],
         },
         {
             "name": "All 10 Features",
