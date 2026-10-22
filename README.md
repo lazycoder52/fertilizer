@@ -127,10 +127,22 @@ Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on 
 
 Load tests simulate concurrent agricultural field queries via [locustfile.py](locustfile.py).
 
-### Local Single-Process vs Production Gunicorn Execution
-- **Local Dev Server (Test Artifact)**: Running `python app.py` on a local machine uses Flask's single-process development server. At 50 concurrent simulated users, single-process execution causes artificial request queuing (median $\sim 2,100\text{ ms}$), reflecting queuing delay rather than model compute time.
-- **Production Setup (Multi-Worker Container)**: In production (Render / Docker), the application is served by Gunicorn running multiple pre-forked workers and threads (`gunicorn -w 4 -k gthread --threads 2 app:app`), multiplexing requests concurrently across CPU cores.
-- **Automated CI Load Testing**: The GitHub Actions CI pipeline includes an automated Locust benchmark that runs headless against the production Docker container running Gunicorn for 30 seconds under 30 concurrent users, uploading CSV and HTML performance summaries directly to build artifacts.
+### Production Gunicorn Container Load Test (CI Benchmark Run)
+
+Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30 seconds via headless Locust:
+
+| Endpoint / Scenario | Requests | Failures | Median ($p50$) | $p95$ | Average Latency | Throughput |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `GET /api/v1/health` | 48 | $0.00\%$ | **2 ms** | **9 ms** | 3.3 ms | 1.65 req/s |
+| `GET /api/v1/info` | 48 | $0.00\%$ | **1 ms** | **3 ms** | 2.3 ms | 1.65 req/s |
+| `GET /` (Web Interface) | 93 | $0.00\%$ | **2 ms** | **5 ms** | 2.3 ms | 3.20 req/s |
+| `POST /api/v1/predict` (Full Soil Test) | 191 | $0.00\%$ | **34 ms** | **50 ms** | 37.5 ms | 6.58 req/s |
+| `POST /api/v1/predict` (Partial / Imputed) | 137 | $0.00\%$ | **34 ms** | **55 ms** | 38.6 ms | 4.72 req/s |
+| `POST /api/v1/explain` (TreeSHAP) | 74 | $0.00\%$ | **35 ms** | **83 ms** | 41.1 ms | 2.55 req/s |
+| **Aggregated Production Total** | **591** | **0.00%** | **33 ms** | **48 ms** | **27.0 ms** | **20.36 req/s** |
+
+> [!NOTE]
+> **Why Local Dev Numbers Looked Different**: Running `python app.py` on a single-core local process caused request queuing saturation at 50 users (median $\sim 2\text{s}$). Under production Gunicorn with multi-threading and worker pooling, the service achieves **33 ms median latency and 48 ms p95 latency** at $> 20\text{ req/s}$ with zero failures.
 
 ---
 
