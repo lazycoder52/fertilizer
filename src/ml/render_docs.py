@@ -426,6 +426,24 @@ def render_load_test_table(metrics: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_load_test_description(metrics: dict[str, Any]) -> str:
+    """Render load test lead description paragraph from load_test block."""
+    lt = metrics.get("load_test", {})
+    agg = lt.get("aggregate", {})
+    desc = agg.get("offered_load_desc")
+    if desc:
+        return desc
+    users = lt.get("users", 30)
+    dur = lt.get("duration", "30s")
+    rps = int(round(agg.get("rps", 20.0)))
+    return (
+        f"Executed against the production Linux Docker container running multi-worker Gunicorn "
+        f"with {users} concurrent users for {dur} via headless Locust, representing "
+        f"~{rps} req/s offered load ({users} Locust users with think time; "
+        f"load generator and server share a GitHub Actions runner):"
+    )
+
+
 def get_marker_generators(metrics: dict[str, Any]) -> dict[str, str]:
     """Map all supported marker names to their generated string values."""
     holdout = metrics.get("holdout_evaluation", {})
@@ -461,6 +479,7 @@ def get_marker_generators(metrics: dict[str, Any]) -> dict[str, str]:
         "per_class_table": render_per_class_table(metrics),
         "missing_input_table": render_missing_input_table(metrics),
         "load_test_table": render_load_test_table(metrics),
+        "load_test_description": render_load_test_description(metrics),
         # Inline headline values
         "holdout_top1": f"${holdout.get('top1_accuracy', 0.0) * 100:.2f}\\%$",
         "holdout_top3": f"${holdout.get('top3_accuracy', 0.0) * 100:.2f}\\%$",

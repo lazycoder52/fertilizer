@@ -181,7 +181,9 @@ Load tests simulate concurrent agricultural field queries via [locustfile.py](lo
 
 ### Production Gunicorn Container Load Test (CI Benchmark Run)
 
-Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30 seconds via headless Locust, representing ~20 req/s offered load (30 Locust users with think time; load generator and server share a GitHub Actions runner):
+<!-- BEGIN:load_test_description -->
+Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30s via headless Locust, representing ~20 req/s offered load (30 Locust users with think time; load generator and server share a GitHub Actions runner):
+<!-- END:load_test_description -->
 
 <!-- BEGIN:load_test_table -->
 | Endpoint / Scenario | Requests | Failures | Median ($p50$) | $p95$ | Average Latency | Offered Load |
@@ -214,7 +216,10 @@ python -m src.ml.ablation
 # 4. Synchronize documentation markdown files from metrics.json (runtime: ~0.1s)
 python -m src.ml.render_docs --check
 
-# 5. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s)
+# 5. Parse Locust load test CSV stats into metrics.json (runtime: ~0.1s)
+python -m src.ml.load_test_summary
+
+# 6. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s)
 python -m src.ml.train_and_evaluate
 ```
 
@@ -295,6 +300,7 @@ fertilizer-app/
 │   └── ml/
 │       ├── ablation.py            # Method A vs Method B ablation, LOFO drops, and permutation importance
 │       ├── audit.py               # Empirical dataset audit and data integrity checks
+│       ├── load_test_summary.py   # Locust CSV benchmark stats parser and metrics.json updater
 │       ├── render_docs.py         # Markdown synchronization and CI check from metrics.json
 │       ├── robustness_eval.py     # 9-model CV, clean holdout, Soil+Crop holdout, and reliability diagram
 │       └── train_and_evaluate.py  # Dev/holdout splitting, CV benchmarking, Optuna, masking, artifact export

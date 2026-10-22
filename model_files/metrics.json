@@ -961,5 +961,75 @@
         "macro_f1": 0.9769
       }
     }
-  ]
+  ],
+  "load_test": {
+    "users": 30,
+    "duration": "30s",
+    "endpoints": [
+      {
+        "name": "[API] Explain (SHAP)",
+        "requests": 74,
+        "failures": 0.0,
+        "p50": 40,
+        "p95": 65,
+        "avg": 45.6,
+        "rps": 2.55
+      },
+      {
+        "name": "[API] Health Check",
+        "requests": 50,
+        "failures": 0.0,
+        "p50": 2,
+        "p95": 16,
+        "avg": 6.4,
+        "rps": 1.72
+      },
+      {
+        "name": "[API] Model Info",
+        "requests": 50,
+        "failures": 0.0,
+        "p50": 2,
+        "p95": 7,
+        "avg": 3.7,
+        "rps": 1.72
+      },
+      {
+        "name": "[API] Predict (Full Soil Test)",
+        "requests": 207,
+        "failures": 0.0,
+        "p50": 40,
+        "p95": 83,
+        "avg": 48.0,
+        "rps": 7.13
+      },
+      {
+        "name": "[API] Predict (Partial / Imputed)",
+        "requests": 130,
+        "failures": 0.0,
+        "p50": 39,
+        "p95": 73,
+        "avg": 47.8,
+        "rps": 4.48
+      },
+      {
+        "name": "[UI] Index Page",
+        "requests": 80,
+        "failures": 0.0,
+        "p50": 2,
+        "p95": 13,
+        "avg": 3.4,
+        "rps": 2.76
+      }
+    ],
+    "aggregate": {
+      "name": "Aggregated",
+      "requests": 591,
+      "failures": 0.0,
+      "p50": 38,
+      "p95": 73,
+      "avg": 34.4,
+      "rps": 20.37,
+      "offered_load_desc": "Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30s via headless Locust, representing ~20 req/s offered load (30 Locust users with think time; load generator and server share a GitHub Actions runner):"
+    }
+  }
 }
