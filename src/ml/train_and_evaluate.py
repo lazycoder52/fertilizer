@@ -8,6 +8,7 @@ conducts Permutation Importance, Leave-One-Feature-Out (LOFO) and finer ablation
 and exports production artifacts with genuine untouched test data.
 """
 
+import argparse
 import json
 import logging
 import subprocess
@@ -33,12 +34,13 @@ from sklearn.metrics import (
     f1_score,
     top_k_accuracy_score,
 )
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from src.ml.audit import run_dataset_audit
+from src.ml.split_utils import get_dataset_splits
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -207,7 +209,10 @@ def create_mask_augmented_data(
     return combined_X, combined_y
 
 
-def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any]:
+def run_pipeline(
+    config_path: Path | str = "config/train_config.yaml",
+    output_dir: Path | str | None = None,
+) -> dict[str, Any]:
     """Execute complete ML rigor, benchmarking, tuning, and evaluation pipeline."""
     with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -215,60 +220,43 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     seed = cfg.get("seed", 42)
     np.random.seed(seed)
 
-    output_dir = Path(cfg.get("output_dir", "model_files"))
-    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = (
+        Path(output_dir) if output_dir is not None else Path(cfg.get("output_dir", "model_files"))
+    )
+    out_path.mkdir(parents=True, exist_ok=True)
+    output_dir = out_path
 
     # 1. Dataset Audit & Target Leakage Check
     logger.info("Running dataset audit and integrity checks...")
     audit_results = run_dataset_audit(cfg["data_path"])
 
-    # Load dataset
-    df = pd.read_csv(cfg["data_path"])
-    le_soil = LabelEncoder()
-    le_crop = LabelEncoder()
-    le_fertilizer = LabelEncoder()
-
-    df["Soil_encoded"] = le_soil.fit_transform(df["Soil"].astype(str))
-    df["Crop_encoded"] = le_crop.fit_transform(df["Crop"].astype(str))
-    df["Fertilizer_encoded"] = le_fertilizer.fit_transform(df["Fertilizer"].astype(str))
-
-    num_classes = len(le_fertilizer.classes_)
-    feature_cols = [
-        "Temperature",
-        "Moisture",
-        "Rainfall",
-        "PH",
-        "Nitrogen",
-        "Phosphorous",
-        "Potassium",
-        "Carbon",
-        "Soil_encoded",
-        "Crop_encoded",
-    ]
-    numerical_cols = cfg["features"]["numerical"]
-
-    # Verify zero target leakage
-    assert "Remark" not in feature_cols, "CRITICAL ERROR: 'Remark' cannot be in feature columns!"
-    assert "Fertilizer" not in feature_cols, (
-        "CRITICAL ERROR: 'Fertilizer' cannot be in feature columns!"
+    # Load dataset and splits using shared split utility (drop-index row ordering)
+    splits = get_dataset_splits(
+        data_path=cfg["data_path"],
+        output_dir=output_dir,
+        seed=seed,
+        test_size=0.2,
     )
-    logger.info(
-        "✓ Target leakage check PASSED: 'Remark' and target are strictly excluded from input vectors."
-    )
-
-    X = df[feature_cols]
-    y = df["Fertilizer_encoded"]
+    df = splits["df"]
+    X = splits["X"]
+    X_dev = splits["X_dev"]
+    y_dev = splits["y_dev"]
+    X_test = splits["X_test"]
+    y_test = splits["y_test"]
+    feature_cols = splits["feature_cols"]
+    numerical_cols = splits["numerical_cols"]
+    class_names = splits["class_names"]
+    num_classes = len(class_names)
+    encoders = splits["encoders"]
+    le_soil = splits["le_soil"]
+    le_crop = splits["le_crop"]
+    le_fertilizer = splits["le_fertilizer"]
 
     # Calculate and persist training feature medians for production imputation
     feature_medians = {col: float(X[col].median()) for col in numerical_cols}
     with open(output_dir / "feature_medians.json", "w", encoding="utf-8") as f:
         json.dump(feature_medians, f, indent=2)
 
-    # 2. Strict Train / Holdout Separation
-    # Split into 80% Development (tuning & baselines) and 20% untouched Holdout
-    X_dev, X_test, y_dev, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=seed, stratify=y
-    )
     logger.info(
         "Dataset partitioned into Development set (%d samples) and Untouched Holdout (%d samples).",
         len(X_dev),
@@ -301,9 +289,9 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
                 ("clf", LogisticRegression(max_iter=1000, random_state=seed)),
             ]
         ),
-        "Decision_Tree": DecisionTreeClassifier(random_state=seed),
+        "Decision_Tree_Clean": DecisionTreeClassifier(random_state=seed),
         "Random_Forest_Default": RandomForestClassifier(n_estimators=100, random_state=seed),
-        "LightGBM_Default": LGBMClassifier(random_state=seed, verbosity=-1),
+        "LightGBM_Clean": LGBMClassifier(random_state=seed, verbosity=-1),
     }
 
     baseline_metrics: dict[str, dict[str, float]] = {}
@@ -598,6 +586,12 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
             logger.warning("Could not read existing %s: %s", metrics_path, exc)
 
     merged_metrics = dict(existing_metrics)
+    if "baseline_comparison" in existing_metrics and isinstance(
+        existing_metrics["baseline_comparison"], dict
+    ):
+        base_merged = dict(existing_metrics["baseline_comparison"])
+        base_merged.update(baseline_metrics)
+        metrics_payload["baseline_comparison"] = base_merged
     merged_metrics.update(metrics_payload)
 
     with open(metrics_path, "w", encoding="utf-8") as f:
@@ -635,5 +629,26 @@ def run_pipeline(config_path: str = "config/train_config.yaml") -> dict[str, Any
     return metrics_payload
 
 
+def main() -> None:
+    """CLI entrypoint for running training and evaluation pipeline."""
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate fertilizer recommendation model."
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/train_config.yaml"),
+        help="Path to YAML training configuration.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Directory to save artifacts and metrics (overrides config output_dir).",
+    )
+    args = parser.parse_args()
+    run_pipeline(config_path=args.config, output_dir=args.output_dir)
+
+
 if __name__ == "__main__":
-    run_pipeline()
+    main()

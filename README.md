@@ -223,7 +223,7 @@ python -m src.ml.render_docs --check
 # 5. Parse Locust load test CSV stats into metrics.json (runtime: ~0.5s on a dev laptop)
 python -m src.ml.load_test_summary
 
-# 6. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s on a dev laptop)
+# 6. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~32s on a dev laptop; support non-mutating test via --output-dir)
 python -m src.ml.train_and_evaluate
 ```
 
