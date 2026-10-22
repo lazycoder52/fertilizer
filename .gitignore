@@ -184,3 +184,7 @@ cython_debug/
 # Locust benchmark artifacts
 locust_benchmark*
 
+# Temporary scratch workspaces
+scratch/
+
+
