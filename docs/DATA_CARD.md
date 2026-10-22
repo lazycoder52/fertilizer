@@ -70,11 +70,40 @@ A statistical audit performed in `src/ml/audit.py` revealed that the labels in t
      - Urea is assigned when $\text{Nitrogen} < 50$ and $\text{pH} \ge 6.0$.
      - DAP is assigned when $\text{Phosphorous} < 50$.
      - MOP is assigned when $\text{Potassium} < 50$.
-   - This explains why an untuned single Decision Tree scores $99.28\% \pm 0.52\%$, comparable to Random Forest ($99.11\% \pm 0.33\%$) and LightGBM ($98.71\% \pm 0.35\%$). The algorithms have learned the underlying rule generator.
+   - This explains why an untuned single Decision Tree scores <!-- BEGIN:clean_dt_top1 -->$99.28\% \pm 0.52\%$<!-- END:clean_dt_top1 -->, comparable to Random Forest (<!-- BEGIN:clean_rf_top1 -->$99.11\% \pm 0.33\%$<!-- END:clean_rf_top1 -->) and LightGBM (<!-- BEGIN:clean_lgbm_top1 -->$98.71\% \pm 0.35\%$<!-- END:clean_lgbm_top1 -->). The algorithms have learned the underlying rule generator.
 
 3. **Target Leakage Verification (`Remark`)**:
    - The auxiliary `Remark` column exhibits an exact 1-to-1 correspondence with `Fertilizer` (zero conditional entropy).
    - *Target Leakage Audit*: `Remark` is strictly excluded from feature vectors during preprocessing, cross-validation, and production inference. It is used solely as an agronomic display note for end users after inference is complete.
+
+4. **Empirical Feature Sensitivity & Ablation**:
+   - Omitting phosphorus drops model accuracy by <!-- BEGIN:lofo_phosphorus_drop -->$16.94\%$<!-- END:lofo_phosphorus_drop --> (down to <!-- BEGIN:lofo_phosphorus_top1 -->$81.77\%$<!-- END:lofo_phosphorus_top1 -->), confirming it as the primary chemical separator.
+   - Omitting carbon drops accuracy by <!-- BEGIN:lofo_carbon_drop -->$11.13\%$<!-- END:lofo_carbon_drop -->.
+   - The unified Method A vs Method B ablation and LOFO benchmarks are presented below:
+
+<!-- BEGIN:ablation_table -->
+| Feature Subset | Feature Count | Method A Top-1 (Deployed + Imputed) | Method A Top-3 | Method B Top-1 (Retrained on Subset) | Method B Top-3 |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Soil + Crop** | 2 | **46.29%** | 79.84% | **48.39%** | 82.90% |
+| **+N/P/K** | 5 | **75.16%** | 96.94% | **74.03%** | 96.45% |
+| **{Soil, Crop, P, K, pH, Carbon}** | 6 | **85.97%** | 96.13% | **87.10%** | 99.19% |
+| **All 10 Features** | 10 | **98.71%** | 100.00% | **99.35%** | 100.00% |
+<!-- END:ablation_table -->
+
+<!-- BEGIN:lofo_table -->
+| Omitted Feature | Resulting Top-1 | Accuracy Drop | Macro-F1 |
+| :--- | :---: | :---: | :---: |
+| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.8239$ |
+| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.8169$ |
+| **Potassium** | $90.32\%$ | $+8.39\%$ | $0.8435$ |
+| **PH** | $93.39\%$ | $+5.32\%$ | $0.7999$ |
+| **Moisture** | $93.55\%$ | $+5.16\%$ | $0.8304$ |
+| **Nitrogen** | $94.35\%$ | $+4.35\%$ | $0.8558$ |
+| **Soil Type (`Soil_encoded`)** | $98.55\%$ | $+0.16\%$ | $0.9332$ |
+| **Crop Type (`Crop_encoded`)** | $99.35\%$ | $-0.65\%$ | $0.9832$ |
+| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+<!-- END:lofo_table -->
 
 ---
 

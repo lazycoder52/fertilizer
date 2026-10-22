@@ -8,9 +8,9 @@
   Across evaluated architectures, high clean-input accuracy stems from learning the synthetic rule partitions, while robustness under missing inputs comes strictly from **feature mask augmentation**, not from model architecture. TreeSHAP attribution is natively supported across tree models including LightGBM and Decision Trees.
   When continuous inputs are omitted, unmasked tree models (Decision Tree, LightGBM, Random Forest Default, Random Forest Tuned) collapse to $21.77\%$ Top-1 accuracy with extreme over-confidence (mean confidence $96.73\% - 100.00\%$, ECE $> 0.74$). Across all evaluated unmasked candidates (including Logistic Regression at $19.35\%$ accuracy / $38.15\%$ confidence and the Zero-Rule baseline at $34.03\%$ accuracy / $100.00\%$ confidence), every unmasked model is over-confident (mean confidence > accuracy).
   When trained with 35% feature masking:
-  - **Masked LightGBM** achieves **$49.84\%$ Top-1** ($84.19\%$ Top-3, ECE $0.0352$).
-  - **Masked Decision Tree** achieves **$48.87\%$ Top-1** ($82.26\%$ Top-3, ECE $0.0623$).
-  - **Masked Random Forest (Production)** achieves **$46.29\%$ Top-1** ($79.84\%$ Top-3, ECE $0.0593$).
+  - **Masked LightGBM** achieves **<!-- BEGIN:masked_lgbm_sc_top1 -->$49.84\%$<!-- END:masked_lgbm_sc_top1 --> Top-1** (<!-- BEGIN:masked_lgbm_sc_top3 -->$84.19\%$<!-- END:masked_lgbm_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_lgbm_sc_ece -->$0.0352$<!-- END:masked_lgbm_sc_ece -->).
+  - **Masked Decision Tree** achieves **<!-- BEGIN:masked_dt_sc_top1 -->$48.87\%$<!-- END:masked_dt_sc_top1 --> Top-1** (<!-- BEGIN:masked_dt_sc_top3 -->$82.26\%$<!-- END:masked_dt_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_dt_sc_ece -->$0.0623$<!-- END:masked_dt_sc_ece -->).
+  - **Masked Random Forest (Production)** achieves **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 --> Top-1** (<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->).
   Masked LightGBM slightly outperforms the Random Forest on missing inputs ($49.84\%$ vs $46.29\%$). In accordance with project policy, the Random Forest artifact is maintained as the production baseline pending architectural migration review.
 - **Hyperparameter Optimization**: Optuna Bayesian TPE executed **strictly on the 80% development split** ($N=2,480$) with 5-fold Stratified Cross-Validation. The holdout set ($N=620$) remained untouched.
 - **Uncertainty & Masking Training**: Trained with 35% random feature masking using development distribution medians, ensuring predictive confidence naturally tempers under missing inputs rather than outputting false certainty.
@@ -40,6 +40,7 @@
 
 Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$, mean $\pm$ standard deviation) and on the untouched **Holdout Test Set ($N=620$)** across clean and missing-input conditions:
 
+<!-- BEGIN:comparison_table -->
 | Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | Clean Holdout Top-1 | Clean Holdout ECE | Soil+Crop Top-1 | Soil+Crop Top-3 | Soil+Crop ECE | Soil+Crop Mean Conf |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507$ | $34.03\%$ | $0.6597$ | $34.03\%$ | $60.81\%$ | $0.6597$ | $100.00\%$ |
@@ -51,6 +52,7 @@ Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on 
 | **Random Forest (Default Clean)** | $99.11\% \pm 0.33\%$ | $0.9683$ | $99.52\%$ | $0.0721$ | $21.77\%$ | $37.74\%$ | $0.7496$ | $96.73\%$ |
 | **Random Forest (Tuned Clean, 75 trees)** | $99.23\% \pm 0.20\%$ | $0.9720$ | $99.35\%$ | $0.0733$ | $21.77\%$ | $55.32\%$ | $0.7537$ | $97.15\%$ |
 | **Random Forest (Tuned + 35% Masking, Production)** | $98.63\% \pm 0.59\%$ | $0.9475$ | **$98.71\%$** | **$0.1209$** | **$46.29\%$** | **$79.84\%$** | **$0.0593$** | **$44.90\%$** |
+<!-- END:comparison_table -->
 
 ### Hyperparameters (Selected via Optuna on Dev Split)
 - `n_estimators`: `75`
@@ -65,15 +67,18 @@ Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on 
 
 The production model was evaluated against an **untouched $20\%$ holdout split** ($N=620$, seed 42) that tuning never saw:
 
+<!-- BEGIN:holdout_summary -->
 - **Top-1 Accuracy**: **$98.71\%$**
 - **Top-3 Accuracy**: **$100.00\%$**
 - **Macro-F1**: **$0.9431$**
 - **Brier Score**: **$0.0552$**
 - **Expected Calibration Error (ECE)**: **$0.1209$**
-- **Mean Confidence**: **$86.62\%$**
+- **Mean Top-Class Confidence**: **$86.62\%$**
+<!-- END:holdout_summary -->
 
 ### Per-Class Holdout Metrics
 
+<!-- BEGIN:per_class_table -->
 | Fertilizer Class | Precision | Recall | F1-Score | Support |
 | :--- | :---: | :---: | :---: | :---: |
 | **Balanced NPK Fertilizer** | $0.9394$ | $1.0000$ | $0.9688$ | 31 |
@@ -88,6 +93,7 @@ The production model was evaluated against an **untouched $20\%$ holdout split**
 | **Water Retaining Fertilizer** | $0.9781$ | $0.9926$ | $0.9853$ | 135 |
 | **Macro Average** | **$0.9809$** | **$0.9356$** | **$0.9431$** | **620** |
 | **Weighted Average** | **$0.9877$** | **$0.9871$** | **$0.9846$** | **620** |
+<!-- END:per_class_table -->
 
 ---
 
@@ -95,11 +101,13 @@ The production model was evaluated against an **untouched $20\%$ holdout split**
 
 In agronomic applications, farmers frequently submit partial soil test records. Rather than emitting falsely confident scores (~99%) on imputed data, the model was trained with feature masking, producing appropriately tempered confidences:
 
+<!-- BEGIN:missing_input_table -->
 | Input Scenario | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Mean Confidence | Expected Calibration Error (ECE) | Brier Score |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Full Soil Test Suite (10 features)** | **$98.71\%$** | **$100.0\%$** | **$0.9431$** | **$86.62\%$** | $0.1209$ | $0.0552$ |
+| **Full Soil Test Suite (10 features)** | **$98.71\%$** | **$100.00\%$** | **$0.9431$** | **$86.62\%$** | $0.1209$ | $0.0552$ |
 | **NPK Core Only (5 features)** | **$75.16\%$** | **$96.94\%$** | **$0.5130$** | **$71.78\%$** | $0.0386$ | $0.3108$ |
 | **Soil & Crop Only (2 features)** | **$46.29\%$** | **$79.84\%$** | **$0.1907$** | **$44.90\%$** | $0.0593$ | $0.6815$ |
+<!-- END:missing_input_table -->
 
 ### Reliability Analysis
 
@@ -120,15 +128,18 @@ The reliability diagram below plots mean predicted confidence against empirical 
 
 The unified ablation table compares Method A (deployed masked model with median imputation for omitted continuous inputs) against Method B (dedicated models retrained exclusively on each feature subset) on the untouched holdout set ($N=620$):
 
+<!-- BEGIN:ablation_table -->
 | Feature Subset | Feature Count | Method A Top-1 (Deployed + Imputed) | Method A Top-3 | Method B Top-1 (Retrained on Subset) | Method B Top-3 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Soil + Crop** | 2 | **46.29%** | 79.84% | **48.39%** | 82.90% |
 | **+N/P/K** | 5 | **75.16%** | 96.94% | **74.03%** | 96.45% |
 | **{Soil, Crop, P, K, pH, Carbon}** | 6 | **85.97%** | 96.13% | **87.10%** | 99.19% |
 | **All 10 Features** | 10 | **98.71%** | 100.00% | **99.35%** | 100.00% |
+<!-- END:ablation_table -->
 
 ### Permutation Feature Importance (Holdout Set)
 
+<!-- BEGIN:permutation_table_roles -->
 | Feature | Mean Accuracy Drop | Standard Deviation | Agronomic Role |
 | :--- | :---: | :---: | :--- |
 | **Phosphorous** | **$43.77\%$** | $\pm 1.45\%$ | Primary macro-nutrient; separates DAP from Balanced NPK |
@@ -136,28 +147,31 @@ The unified ablation table compares Method A (deployed masked model with median 
 | **PH** | **$19.02\%$** | $\pm 1.17\%$ | Critical threshold separator for Lime ($\text{pH} < 6.0$) |
 | **Carbon** | **$16.84\%$** | $\pm 1.36\%$ | Organic matter index separating Compost and Organic Fertilizer |
 | **Moisture** | **$12.84\%$** | $\pm 0.81\%$ | Separates Water Retaining formulations |
-| **Nitrogen** | **$9.37\%$** | $\pm 0.39\%$ | Separates Urea |
-| **Soil Type** | **$4.89\%$** | $\pm 0.43\%$ | Textural/chemical baseline modifier |
-| **Temperature** | **$0.26\%$** | $\pm 0.08\%$ | Minor climatic influence |
-| **Rainfall** | **$0.02\%$** | $\pm 0.05\%$ | Minor climatic influence |
-| **Crop Type** | **$0.00\%$** | $\pm 0.14\%$ | Synthetic labels assign fertilizer independently of crop |
+| **Nitrogen** | $9.37\%$ | $\pm 0.39\%$ | Separates Urea |
+| **Soil Type** | $4.89\%$ | $\pm 0.43\%$ | Textural/chemical baseline modifier |
+| **Temperature** | $0.26\%$ | $\pm 0.08\%$ | Minor climatic influence |
+| **Rainfall** | $0.02\%$ | $\pm 0.05\%$ | Minor climatic influence |
+| **Crop Type** | $0.00\%$ | $\pm 0.14\%$ | Synthetic labels assign fertilizer independently of crop |
+<!-- END:permutation_table_roles -->
 
 ### Leave-One-Feature-Out (LOFO) Ablation (Holdout Set)
 
 Retraining separate models omitting one feature at a time reveals individual feature necessity:
 
-| Omitted Feature | Resulting Top-1 | Accuracy Drop | Macro-F1 | Sensitivity Takeaway |
-| :--- | :---: | :---: | :---: | :--- |
-| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.7888$ | Greatest individual necessity |
-| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.7827$ | Essential for compost vs chemical split |
-| **Potassium** | $90.32\%$ | **$+8.39\%$** | $0.8197$ | Essential for MOP identification |
-| **PH** | $93.39\%$ | **$+5.32\%$** | $0.8037$ | Essential for Lime trigger |
-| **Moisture** | $93.55\%$ | **$+5.16\%$** | $0.7949$ | Key for water retaining formulation |
-| **Nitrogen** | $94.35\%$ | **$+4.35\%$** | $0.8435$ | Essential for Urea trigger |
-| **Soil Type** | $98.55\%$ | $+0.16\%$ | $0.9400$ | Marginal individual impact |
-| **Crop Type** | $99.35\%$ | $-0.65\%$ | $0.9695$ | Redundant with nutrient rules |
-| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9700$ | Non-essential |
-| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9700$ | Non-essential |
+<!-- BEGIN:lofo_table -->
+| Omitted Feature | Resulting Top-1 | Accuracy Drop | Macro-F1 |
+| :--- | :---: | :---: | :---: |
+| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.8239$ |
+| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.8169$ |
+| **Potassium** | $90.32\%$ | $+8.39\%$ | $0.8435$ |
+| **PH** | $93.39\%$ | $+5.32\%$ | $0.7999$ |
+| **Moisture** | $93.55\%$ | $+5.16\%$ | $0.8304$ |
+| **Nitrogen** | $94.35\%$ | $+4.35\%$ | $0.8558$ |
+| **Soil Type (`Soil_encoded`)** | $98.55\%$ | $+0.16\%$ | $0.9332$ |
+| **Crop Type (`Crop_encoded`)** | $99.35\%$ | $-0.65\%$ | $0.9832$ |
+| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+<!-- END:lofo_table -->
 
 ---
 

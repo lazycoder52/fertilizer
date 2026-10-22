@@ -63,22 +63,22 @@ graph TD
   - Across candidates, high accuracy stems from learning the synthetic rule partitions, while missing-input robustness comes strictly from **feature mask augmentation**, not from model architecture. TreeSHAP attribution is supported across tree models including LightGBM and Decision Trees.
   - When continuous inputs are omitted, unmasked tree models (Decision Tree, LightGBM, Random Forest Default, Random Forest Tuned) collapse to $21.77\%$ Top-1 accuracy with extreme over-confidence (mean confidence $96.73\% - 100.00\%$, ECE $> 0.74$). Across all evaluated unmasked candidates (including Logistic Regression at $19.35\%$ accuracy / $38.15\%$ confidence / ECE $0.1880$, and the Zero-Rule baseline at $34.03\%$ accuracy / $100.00\%$ confidence / ECE $0.6597$), every unmasked model is over-confident (mean confidence > accuracy).
   - When trained with 35% feature masking, models gracefully degrade:
-    - **Masked LightGBM** achieves **$49.84\%$ Top-1** ($84.19\%$ Top-3, ECE $0.0352$).
-    - **Masked Decision Tree** achieves **$48.87\%$ Top-1** ($82.26\%$ Top-3, ECE $0.0623$).
-    - **Masked Random Forest (Production)** achieves **$46.29\%$ Top-1** ($79.84\%$ Top-3, ECE $0.0593$).
+    - **Masked LightGBM** achieves **<!-- BEGIN:masked_lgbm_sc_top1 -->$49.84\%$<!-- END:masked_lgbm_sc_top1 --> Top-1** (<!-- BEGIN:masked_lgbm_sc_top3 -->$84.19\%$<!-- END:masked_lgbm_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_lgbm_sc_ece -->$0.0352$<!-- END:masked_lgbm_sc_ece -->).
+    - **Masked Decision Tree** achieves **<!-- BEGIN:masked_dt_sc_top1 -->$48.87\%$<!-- END:masked_dt_sc_top1 --> Top-1** (<!-- BEGIN:masked_dt_sc_top3 -->$82.26\%$<!-- END:masked_dt_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_dt_sc_ece -->$0.0623$<!-- END:masked_dt_sc_ece -->).
+    - **Masked Random Forest (Production)** achieves **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 --> Top-1** (<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 --> Top-3, ECE <!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->).
   - Masked LightGBM slightly edges out the forest on missing inputs ($49.84\%$ vs $46.29\%$). The Random Forest artifact is maintained as the production baseline pending architectural migration review.
 - **Evaluated on Strict Untouched Holdout ($N=620$)**:
-  - Top-1 Accuracy: **$98.71\%$** | Top-3 Accuracy: **$100.00\%$** | Macro-F1: **$0.9431$** | Brier Score: **$0.0552$** | Expected Calibration Error (ECE): **$0.1209$**.
+  - Top-1 Accuracy: **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->** | Top-3 Accuracy: **<!-- BEGIN:holdout_top3 -->$100.00\%$<!-- END:holdout_top3 -->** | Macro-F1: **<!-- BEGIN:holdout_macro_f1 -->$0.9431$<!-- END:holdout_macro_f1 -->** | Brier Score: **<!-- BEGIN:holdout_brier -->$0.0552$<!-- END:holdout_brier -->** | Expected Calibration Error (ECE): **<!-- BEGIN:holdout_ece -->$0.1209$<!-- END:holdout_ece -->**.
 - **Probability Reliability & Confidence Tempering**:
-  - On clean inputs, the production model is **under-confident**: mean top-1 predicted confidence is **$86.62\%$** compared to empirical accuracy of **$98.71\%$**, which directly accounts for the $\text{ECE} = 0.1209$.
-  - On missing inputs (Soil + Crop only), all unmasked candidates are over-confident (mean confidence > accuracy); unmasked tree models output severe over-confidence ($96.73\% - 100.00\%$ confidence on $21.77\%$ accuracy, ECE $0.7496 - 0.7823$), whereas the masked production model tempers confidence to **$44.90\%$** ($\text{ECE} = 0.0593$).
+  - On clean inputs, the production model is **under-confident**: mean top-1 predicted confidence is **<!-- BEGIN:holdout_mean_confidence -->$86.62\%$<!-- END:holdout_mean_confidence -->** compared to empirical accuracy of **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->**, which directly accounts for the $\text{ECE} = <!-- BEGIN:holdout_ece -->$0.1209$<!-- END:holdout_ece -->$.
+  - On missing inputs (Soil + Crop only), all unmasked candidates are over-confident (mean confidence > accuracy); unmasked tree models output severe over-confidence ($96.73\% - 100.00\%$ confidence on $21.77\%$ accuracy, ECE $0.7496 - 0.7823$), whereas the masked production model tempers confidence to **<!-- BEGIN:masked_rf_sc_mean_conf -->$44.90\%$<!-- END:masked_rf_sc_mean_conf -->** ($\text{ECE} = <!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->$).
 - **Flexible Moisture Input Rule**:
   - Soil moisture input rule: Values in $[0.0, 1.0]$ are treated as fractions (where `1.0` means 100%), and values in $(1.0, 100.0]$ are treated as percentages (e.g., `0.5` means 50%, `1.01` means 1.01%, `60` means 60%, `100` means 100%) and normalized to $[0.0, 1.0]$. Values $> 100.0$ or $< 0.0$ are rejected by validation.
   - Displays a visible **"Low confidence: using default benchmark values for omitted soil test parameters"** warning in the UI and API whenever defaults are used.
 - **Finer Input Ablation & Sensitivity Analysis**:
   - Evaluates both Method A (deployed masked model with median imputation) and Method B (retrained models on each subset).
-  - Minimal high-confidence 6-feature suite (`Soil, Crop, P, K, pH, Carbon`) achieves **$85.97\%$ Top-1** ($96.13\%$ Top-3) under Method A and **$87.10\%$ Top-1** ($99.19\%$ Top-3) under Method B.
-  - Leave-One-Feature-Out (LOFO) ablation identifies Phosphorus as the most critical nutrient (omitting it drops accuracy by $16.94\%$, down to $81.77\%$).
+  - Minimal high-confidence 6-feature suite (`Soil, Crop, P, K, pH, Carbon`) achieves **<!-- BEGIN:suite6_method_a_top1 -->$85.97\%$<!-- END:suite6_method_a_top1 --> Top-1** (<!-- BEGIN:suite6_method_a_top3 -->$96.13\%$<!-- END:suite6_method_a_top3 --> Top-3) under Method A and **<!-- BEGIN:suite6_method_b_top1 -->$87.10\%$<!-- END:suite6_method_b_top1 --> Top-1** (<!-- BEGIN:suite6_method_b_top3 -->$99.19\%$<!-- END:suite6_method_b_top3 --> Top-3) under Method B.
+  - Leave-One-Feature-Out (LOFO) ablation identifies Phosphorus as the most critical nutrient (omitting it drops accuracy by <!-- BEGIN:lofo_phosphorus_drop -->$16.94\%$<!-- END:lofo_phosphorus_drop -->, down to <!-- BEGIN:lofo_phosphorus_top1 -->$81.77\%$<!-- END:lofo_phosphorus_top1 -->).
 - **Lean Runtime & Verified Containerization**: Production runtime dependencies (`requirements.txt`) are split from heavy training/dev dependencies (`requirements-dev.txt`). Multi-stage Docker build and container healthcheck are verified on every push in CI.
 - **CI Quality Gate**: [`tests/test_model_quality.py`](tests/test_model_quality.py) runs on every push and PR, dynamically evaluating the saved binary against the holdout set to enforce $\text{Top-1} \ge 95\%$, $\text{Top-3} \ge 99\%$, and $\text{Macro-F1} \ge 0.90$.
 
@@ -88,6 +88,7 @@ graph TD
 
 Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$, mean $\pm$ standard deviation) and on the untouched **Holdout Test Set ($N=620$)** across clean and missing-input conditions:
 
+<!-- BEGIN:comparison_table -->
 | Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | Clean Holdout Top-1 | Clean Holdout ECE | Soil+Crop Top-1 | Soil+Crop Top-3 | Soil+Crop ECE | Soil+Crop Mean Conf |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507$ | $34.03\%$ | $0.6597$ | $34.03\%$ | $60.81\%$ | $0.6597$ | $100.00\%$ |
@@ -99,14 +100,17 @@ Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on 
 | **Random Forest (Default Clean)** | $99.11\% \pm 0.33\%$ | $0.9683$ | $99.52\%$ | $0.0721$ | $21.77\%$ | $37.74\%$ | $0.7496$ | $96.73\%$ |
 | **Random Forest (Tuned Clean, 75 trees)** | $99.23\% \pm 0.20\%$ | $0.9720$ | $99.35\%$ | $0.0733$ | $21.77\%$ | $55.32\%$ | $0.7537$ | $97.15\%$ |
 | **Random Forest (Tuned + 35% Masking, Production)** | $98.63\% \pm 0.59\%$ | $0.9475$ | **$98.71\%$** | **$0.1209$** | **$46.29\%$** | **$79.84\%$** | **$0.0593$** | **$44.90\%$** |
+<!-- END:comparison_table -->
 
 ### Holdout Evaluation on Untouched Test Set ($N=620$, never seen during tuning or training)
+<!-- BEGIN:holdout_summary -->
 - **Top-1 Accuracy**: **$98.71\%$**
 - **Top-3 Accuracy**: **$100.00\%$**
 - **Macro-F1**: **$0.9431$**
 - **Brier Score**: **$0.0552$**
 - **Expected Calibration Error (ECE)**: **$0.1209$**
 - **Mean Top-Class Confidence**: **$86.62\%$**
+<!-- END:holdout_summary -->
 
 ### Reliability Diagram
 
@@ -126,30 +130,35 @@ The reliability diagram visualizes confidence vs empirical accuracy across 10 eq
 
 Ablation compares Method A (deployed masked model with median imputation for omitted continuous inputs) against Method B (dedicated models retrained exclusively on each feature subset) on the untouched holdout set ($N=620$):
 
+<!-- BEGIN:ablation_table -->
 | Feature Subset | Feature Count | Method A Top-1 (Deployed + Imputed) | Method A Top-3 | Method B Top-1 (Retrained on Subset) | Method B Top-3 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Soil + Crop** | 2 | **46.29%** | 79.84% | **48.39%** | 82.90% |
 | **+N/P/K** | 5 | **75.16%** | 96.94% | **74.03%** | 96.45% |
 | **{Soil, Crop, P, K, pH, Carbon}** | 6 | **85.97%** | 96.13% | **87.10%** | 99.19% |
 | **All 10 Features** | 10 | **98.71%** | 100.00% | **99.35%** | 100.00% |
+<!-- END:ablation_table -->
 
 ### Leave-One-Feature-Out (LOFO) Accuracy Drops (Holdout Set)
 
+<!-- BEGIN:lofo_table -->
 | Omitted Feature | Resulting Top-1 | Accuracy Drop | Macro-F1 |
 | :--- | :---: | :---: | :---: |
-| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.7888$ |
-| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.7827$ |
-| **Potassium** | $90.32\%$ | **$+8.39\%$** | $0.8197$ |
-| **PH** | $93.39\%$ | **$+5.32\%$** | $0.8037$ |
-| **Moisture** | $93.55\%$ | **$+5.16\%$** | $0.7949$ |
-| **Nitrogen** | $94.35\%$ | **$+4.35\%$** | $0.8435$ |
-| **Soil Type (`Soil_encoded`)** | $98.55\%$ | $+0.16\%$ | $0.9400$ |
-| **Crop Type (`Crop_encoded`)** | $99.35\%$ | $-0.65\%$ | $0.9695$ |
-| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9700$ |
-| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9700$ |
+| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.8239$ |
+| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.8169$ |
+| **Potassium** | $90.32\%$ | $+8.39\%$ | $0.8435$ |
+| **PH** | $93.39\%$ | $+5.32\%$ | $0.7999$ |
+| **Moisture** | $93.55\%$ | $+5.16\%$ | $0.8304$ |
+| **Nitrogen** | $94.35\%$ | $+4.35\%$ | $0.8558$ |
+| **Soil Type (`Soil_encoded`)** | $98.55\%$ | $+0.16\%$ | $0.9332$ |
+| **Crop Type (`Crop_encoded`)** | $99.35\%$ | $-0.65\%$ | $0.9832$ |
+| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9851$ |
+<!-- END:lofo_table -->
 
 ### Permutation Importance (Holdout Set)
 
+<!-- BEGIN:permutation_table -->
 | Feature | Mean Accuracy Drop | Standard Deviation |
 | :--- | :---: | :---: |
 | **Phosphorous** | **$43.77\%$** | $\pm 1.45\%$ |
@@ -157,11 +166,12 @@ Ablation compares Method A (deployed masked model with median imputation for omi
 | **PH** | **$19.02\%$** | $\pm 1.17\%$ |
 | **Carbon** | **$16.84\%$** | $\pm 1.36\%$ |
 | **Moisture** | **$12.84\%$** | $\pm 0.81\%$ |
-| **Nitrogen** | **$9.37\%$** | $\pm 0.39\%$ |
-| **Soil Type** | **$4.89\%$** | $\pm 0.43\%$ |
-| **Temperature** | **$0.26\%$** | $\pm 0.08\%$ |
-| **Rainfall** | **$0.02\%$** | $\pm 0.05\%$ |
-| **Crop Type** | **$0.00\%$** | $\pm 0.14\%$ |
+| **Nitrogen** | $9.37\%$ | $\pm 0.39\%$ |
+| **Soil Type** | $4.89\%$ | $\pm 0.43\%$ |
+| **Temperature** | $0.26\%$ | $\pm 0.08\%$ |
+| **Rainfall** | $0.02\%$ | $\pm 0.05\%$ |
+| **Crop Type** | $0.00\%$ | $\pm 0.14\%$ |
+<!-- END:permutation_table -->
 
 ---
 
@@ -173,15 +183,17 @@ Load tests simulate concurrent agricultural field queries via [locustfile.py](lo
 
 Executed against the production Linux Docker container running multi-worker Gunicorn with 30 concurrent users for 30 seconds via headless Locust, representing ~20 req/s offered load (30 Locust users with think time; load generator and server share a GitHub Actions runner):
 
+<!-- BEGIN:load_test_table -->
 | Endpoint / Scenario | Requests | Failures | Median ($p50$) | $p95$ | Average Latency | Offered Load |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `GET /api/v1/health` | 48 | $0.00\%$ | **2 ms** | **9 ms** | 3.3 ms | ~1.65 req/s |
-| `GET /api/v1/info` | 48 | $0.00\%$ | **1 ms** | **3 ms** | 2.3 ms | ~1.65 req/s |
-| `GET /` (Web Interface) | 93 | $0.00\%$ | **2 ms** | **5 ms** | 2.3 ms | ~3.20 req/s |
-| `POST /api/v1/predict` (Full Soil Test) | 191 | $0.00\%$ | **34 ms** | **50 ms** | 37.5 ms | ~6.58 req/s |
-| `POST /api/v1/predict` (Partial / Imputed) | 137 | $0.00\%$ | **34 ms** | **55 ms** | 38.6 ms | ~4.72 req/s |
-| `POST /api/v1/explain` (TreeSHAP) | 74 | $0.00\%$ | **35 ms** | **83 ms** | 41.1 ms | ~2.55 req/s |
-| **Aggregated Production Total** | **591** | **0.00%** | **33 ms** | **48 ms** | **27.0 ms** | **~20.36 req/s** |
+| `GET /api/v1/health` | 50 | $0.00\%$ | **2 ms** | **16 ms** | 6.4 ms | ~1.72 req/s |
+| `GET /api/v1/info` | 50 | $0.00\%$ | **2 ms** | **7 ms** | 3.7 ms | ~1.72 req/s |
+| `GET /` (Web Interface) | 80 | $0.00\%$ | **2 ms** | **13 ms** | 3.4 ms | ~2.76 req/s |
+| `POST /api/v1/predict` (Full Soil Test) | 207 | $0.00\%$ | **40 ms** | **83 ms** | 48.0 ms | ~7.13 req/s |
+| `POST /api/v1/predict` (Partial / Imputed) | 130 | $0.00\%$ | **39 ms** | **73 ms** | 47.8 ms | ~4.48 req/s |
+| `POST /api/v1/explain` (TreeSHAP) | 74 | $0.00\%$ | **40 ms** | **65 ms** | 45.6 ms | ~2.55 req/s |
+| **Aggregated Production Total** | **591** | **0.00%** | **38 ms** | **73 ms** | **34.4 ms** | **~20.37 req/s** |
+<!-- END:load_test_table -->
 
 ---
 
@@ -199,7 +211,10 @@ python -m src.ml.robustness_eval
 # 3. Method A vs Method B ablation, LOFO drops, and permutation importance (runtime: ~5s)
 python -m src.ml.ablation
 
-# 4. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s)
+# 4. Synchronize documentation markdown files from metrics.json (runtime: ~0.1s)
+python -m src.ml.render_docs --check
+
+# 5. Optional: Full training pipeline, bounded Optuna optimization, and artifact export (runtime: ~45s)
 python -m src.ml.train_and_evaluate
 ```
 
@@ -280,6 +295,7 @@ fertilizer-app/
 │   └── ml/
 │       ├── ablation.py            # Method A vs Method B ablation, LOFO drops, and permutation importance
 │       ├── audit.py               # Empirical dataset audit and data integrity checks
+│       ├── render_docs.py         # Markdown synchronization and CI check from metrics.json
 │       ├── robustness_eval.py     # 9-model CV, clean holdout, Soil+Crop holdout, and reliability diagram
 │       └── train_and_evaluate.py  # Dev/holdout splitting, CV benchmarking, Optuna, masking, artifact export
 ├── templates/
