@@ -4,9 +4,16 @@
 
 - **Model Architecture**: Ensemble Random Forest Classifier (`RandomForestClassifier`)
 - **Dataset Framing**: **Synthetic benchmark dataset** with rule-generated target boundaries.
-- **Model Selection Rationale & Trade-off**: On the clean development split, Decision Tree ($99.35\% \pm 0.35\%$), Random Forest ($99.27\% \pm 0.35\%$), and LightGBM ($99.11\% \pm 0.37\%$) perform similarly due to synthetic rectangular boundaries. Random Forest was selected for **native, fast TreeSHAP explainability support** and **robustness to missing user inputs via feature masking**. When all continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with extreme overconfidence (ECE $> 0.74$, average confidence $> 96\%$). In contrast, the masked Random Forest maintains **$46.29\%$ Top-1** ($79.84\%$ Top-3) and appropriately tempers its confidence to $44.90\%$ (ECE $0.0593$). The acknowledged trade-off is slightly lower clean-input macro-F1 ($0.9431$ vs $0.9756$) and higher clean-input ECE ($0.1209$ vs $0.0065$).
+- **Model Selection Rationale & Trade-off**:
+  Across evaluated architectures, high clean-input accuracy stems from learning the synthetic rule partitions, while robustness under missing inputs comes strictly from **feature mask augmentation**, not from model architecture. TreeSHAP attribution is natively supported across tree models including LightGBM and Decision Trees.
+  When continuous inputs are omitted, unmasked models collapse to $21.77\%$ Top-1 accuracy with extreme overconfidence (mean confidence $96.7\% - 100\%$, ECE $> 0.74$).
+  When trained with 35% feature masking:
+  - **Masked LightGBM** achieves **$49.84\%$ Top-1** ($84.19\%$ Top-3, ECE $0.0352$).
+  - **Masked Decision Tree** achieves **$48.87\%$ Top-1** ($82.26\%$ Top-3, ECE $0.0623$).
+  - **Masked Random Forest (Production)** achieves **$46.29\%$ Top-1** ($79.84\%$ Top-3, ECE $0.0593$).
+  Masked LightGBM slightly outperforms the Random Forest on missing inputs ($49.84\%$ vs $46.29\%$). In accordance with project policy, the Random Forest artifact is maintained as the production baseline pending architectural migration review.
 - **Hyperparameter Optimization**: Optuna Bayesian TPE executed **strictly on the 80% development split** ($N=2,480$) with 5-fold Stratified Cross-Validation. The holdout set ($N=620$) remained untouched.
-- **Uncertainty & Masking Retraining**: Retrained with 35% random feature masking using development distribution medians, ensuring probability distributions naturally temper under missing inputs rather than outputting false certainty.
+- **Uncertainty & Masking Training**: Trained with 35% random feature masking using development distribution medians, ensuring predictive confidence naturally tempers under missing inputs rather than outputting false certainty.
 - **Production Artifact**: `model_files/model.joblib` (Compressed, ~600 KB)
 - **Input Dimension**: 10 tabular agronomic parameters (8 numerical soil/environmental test values, 2 categorical)
 - **Output Dimension**: 10 target fertilizer classes with Top-3 probability ranking and missing-feature uncertainty flagging
@@ -29,24 +36,21 @@
 
 ---
 
-## 3. Evaluation Benchmarks & Baseline Comparison (Development Split)
+## 3. Evaluation Benchmarks & Baseline Comparison
 
-Baseline algorithms were evaluated on the **Development split ($N=2,480$)** using **5-fold Stratified Cross-Validation**, reporting mean $\pm$ standard deviation, alongside missing-input evaluation (Soil & Crop only) on the Holdout split ($N=620$):
+Candidate models were evaluated under **5-Fold Stratified Cross-Validation** on the Development Split ($N=2,480$, mean $\pm$ standard deviation) and on the untouched **Holdout Test Set ($N=620$)** across clean and missing-input conditions:
 
-| Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | 5-Fold CV ECE | Missing-Input Top-1 (Soil+Crop Only) | Missing-Input ECE (Overconfidence Risk) | Train Time ($s$) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507 \pm 0.000$ | $0.6601$ | $19.35\%$ | $0.6601$ (Avg Conf: $100\%$) | $0.02\text{s}$ |
-| **Logistic Regression (Standardized)** | $79.96\% \pm 1.17\%$ | $0.6781 \pm 0.026$ | $0.0682$ | $19.35\%$ | $0.1880$ (Avg Conf: $38.2\%$) | $0.15\text{s}$ |
-| **Decision Tree (CART)** | $99.35\% \pm 0.35\%$ | $0.9756 \pm 0.016$ | $0.0065$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $0.06\text{s}$ |
-| **LightGBM (Gradient Boosting)** | $99.11\% \pm 0.37\%$ | $0.9786 \pm 0.016$ | $0.0093$ | $21.77\%$ | $0.7823$ (Avg Conf: $100\%$) | $3.59\text{s}$ |
-| **Random Forest (Default Clean)** | $99.27\% \pm 0.35\%$ | $0.9743 \pm 0.011$ | $0.0804$ | $21.77\%$ | $0.7449$ (Avg Conf: $96.3\%$) | $1.61\text{s}$ |
-| **Random Forest (Tuned Clean, 75 trees)** | $99.31\% \pm 0.27\%$ | $0.9779 \pm 0.007$ | $0.0851$ | $21.77\%$ | $0.7457$ (Avg Conf: $96.4\%$) | $1.42\text{s}$ |
-| **Random Forest (Tuned + 35% Masking, Production)** | **$98.75\% \pm 0.39\%$** | **$0.9517 \pm 0.012$** | **$0.1345$** | **$46.29\%$** | **$0.0593$** (Avg Conf: **$44.9\%$**) | $2.15\text{s}$ |
-
-> [!NOTE]
-> **Expected Calibration Error (ECE) Definition**: Computed as top-label multi-class ECE partitioned into $M=10$ equal-width confidence bins in $[0, 1]$:
-> $$\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} |\text{acc}(B_m) - \text{conf}(B_m)|$$
-> Notice that while clean-input Decision Tree and LightGBM have near-zero ECE on clean inputs, they are catastrophically overconfident ($100\%$ confidence on $21.8\%$ accuracy) when inputs are omitted. The masked Random Forest is the only candidate that gracefully degrades confidence.
+| Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | Clean Holdout Top-1 | Clean Holdout ECE | Soil+Crop Top-1 | Soil+Crop Top-3 | Soil+Crop ECE | Soil+Crop Mean Conf |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507$ | $34.03\%$ | $0.6597$ | $34.03\%$ | $60.81\%$ | $0.6597$ | $100.00\%$ |
+| **Logistic Regression (Standardized)** | $80.36\% \pm 0.91\%$ | $0.6815$ | $79.84\%$ | $0.0759$ | $19.35\%$ | $66.29\%$ | $0.1880$ | $38.15\%$ |
+| **Decision Tree (Clean)** | $99.28\% \pm 0.52\%$ | $0.9771$ | $99.19\%$ | $0.0081$ | $21.77\%$ | $29.84\%$ | $0.7823$ | $100.00\%$ |
+| **Decision Tree (Mask-Augmented 35%)** | $94.27\% \pm 1.06\%$ | $0.8910$ | $96.77\%$ | $0.0323$ | $48.87\%$ | $82.26\%$ | $0.0623$ | $55.09\%$ |
+| **LightGBM (Clean)** | $98.71\% \pm 0.35\%$ | $0.9725$ | $98.71\%$ | $0.0109$ | $21.77\%$ | $66.77\%$ | $0.7823$ | $100.00\%$ |
+| **LightGBM (Mask-Augmented 35%)** | $97.79\% \pm 0.58\%$ | $0.9060$ | $97.74\%$ | $0.0082$ | $49.84\%$ | $84.19\%$ | $0.0352$ | $52.96\%$ |
+| **Random Forest (Default Clean)** | $99.11\% \pm 0.33\%$ | $0.9683$ | $99.52\%$ | $0.0721$ | $21.77\%$ | $37.74\%$ | $0.7496$ | $96.73\%$ |
+| **Random Forest (Tuned Clean, 75 trees)** | $99.23\% \pm 0.20\%$ | $0.9720$ | $99.35\%$ | $0.0733$ | $21.77\%$ | $55.32\%$ | $0.7537$ | $97.15\%$ |
+| **Random Forest (Tuned + 35% Masking, Production)** | $98.63\% \pm 0.59\%$ | $0.9475$ | **$98.71\%$** | **$0.1209$** | **$46.29\%$** | **$79.84\%$** | **$0.0593$** | **$44.90\%$** |
 
 ### Hyperparameters (Selected via Optuna on Dev Split)
 - `n_estimators`: `75`
@@ -87,9 +91,9 @@ The production model was evaluated against an **untouched $20\%$ holdout split**
 
 ---
 
-## 5. Calibration & Uncertainty under Missing / Imputed Inputs
+## 5. Confidence Behavior & Missing Input Dynamics
 
-In agronomic applications, farmers frequently submit partial soil test records. Rather than emitting falsely confident scores (~99%) on imputed data, the model was retrained with feature masking, producing appropriately tempered confidences:
+In agronomic applications, farmers frequently submit partial soil test records. Rather than emitting falsely confident scores (~99%) on imputed data, the model was trained with feature masking, producing appropriately tempered confidences:
 
 | Input Scenario | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 | Mean Confidence | Expected Calibration Error (ECE) | Brier Score |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -97,57 +101,63 @@ In agronomic applications, farmers frequently submit partial soil test records. 
 | **NPK Core Only (5 features)** | **$75.16\%$** | **$96.94\%$** | **$0.5130$** | **$71.78\%$** | $0.0386$ | $0.3108$ |
 | **Soil & Crop Only (2 features)** | **$46.29\%$** | **$79.84\%$** | **$0.1907$** | **$44.90\%$** | $0.0593$ | $0.6815$ |
 
-> [!IMPORTANT]
-> When default medians are imputed, the API response and web UI immediately display a visible **"Low confidence: using default values for missing soil test parameters"** warning, transparently communicating reduced certainty.
+### Reliability Analysis
+
+The reliability diagram below plots mean predicted confidence against empirical accuracy across 10 equal-width bins:
+
+![Reliability Diagram](images/reliability.png)
+
+> [!NOTE]
+> **Under-Confidence on Clean Inputs**:
+> On clean inputs, the production model is **under-confident**: its mean predicted top-1 confidence is **$86.62\%$**, while its actual empirical accuracy is **$98.71\%$**. This conservative gap of $\sim 12\%$ accounts for the Expected Calibration Error of $\text{ECE} = 0.1209$.
+>
+> **Over-Confidence of Unmasked Models on Missing Inputs**:
+> When soil test parameters are omitted, unmasked models suffer severe overconfidence breakdown: their accuracy collapses to $21.77\%$, but they continue to output $96.7\% - 100\%$ confidence ($\text{ECE} \approx 0.75 - 0.78$). Masked training successfully prevents false certainty by tempering confidence to $44.90\%$ ($\text{ECE} = 0.0593$).
 
 ---
 
-## 6. Permutation Importance & Leave-One-Feature-Out (LOFO) Ablation
+## 6. Feature Ablation & Sensitivity Analysis
+
+The unified ablation table compares Method A (deployed masked model with median imputation for omitted continuous inputs) against Method B (dedicated models retrained exclusively on each feature subset) on the untouched holdout set ($N=620$):
+
+| Feature Subset | Feature Count | Method A Top-1 (Deployed + Imputed) | Method A Top-3 | Method B Top-1 (Retrained on Subset) | Method B Top-3 |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Soil + Crop** | 2 | **46.29%** | 79.84% | **48.39%** | 82.90% |
+| **+N/P/K** | 5 | **75.16%** | 96.94% | **74.03%** | 96.45% |
+| **{Soil, Crop, P, K, pH, Carbon}** | 6 | **85.97%** | 96.13% | **87.10%** | 99.19% |
+| **All 10 Features** | 10 | **98.71%** | 100.00% | **99.35%** | 100.00% |
 
 ### Permutation Feature Importance (Holdout Set)
 
 | Feature | Mean Accuracy Drop | Standard Deviation | Agronomic Role |
 | :--- | :---: | :---: | :--- |
-| **Phosphorous** | **$0.4377$** | $0.0145$ | Primary macro-nutrient; separates DAP from Balanced NPK |
-| **Potassium** | **$0.2048$** | $0.0070$ | Separates MOP and potassium-deficient soils |
-| **PH** | **$0.1902$** | $0.0117$ | Critical threshold separator for Lime ($\text{pH} < 6.0$) |
-| **Carbon** | **$0.1684$** | $0.0136$ | Organic matter index separating Compost and Organic Fertilizer |
-| **Moisture** | **$0.1284$** | $0.0081$ | Separates Water Retaining formulations |
-| **Nitrogen** | **$0.0937$** | $0.0039$ | Separates Urea |
-| **Soil Type** | **$0.0489$** | $0.0043$ | Textural/chemical baseline modifier |
-| **Temperature** | **$0.0026$** | $0.0008$ | Minor climatic influence |
-| **Rainfall** | **$0.0002$** | $0.0005$ | Minor climatic influence |
-| **Crop Type** | **$0.0000$** | $0.0014$ | Synthetic labels assign fertilizer independently of crop |
+| **Phosphorous** | **$43.77\%$** | $\pm 1.45\%$ | Primary macro-nutrient; separates DAP from Balanced NPK |
+| **Potassium** | **$20.48\%$** | $\pm 0.70\%$ | Separates MOP and potassium-deficient soils |
+| **PH** | **$19.02\%$** | $\pm 1.17\%$ | Critical threshold separator for Lime ($\text{pH} < 6.0$) |
+| **Carbon** | **$16.84\%$** | $\pm 1.36\%$ | Organic matter index separating Compost and Organic Fertilizer |
+| **Moisture** | **$12.84\%$** | $\pm 0.81\%$ | Separates Water Retaining formulations |
+| **Nitrogen** | **$9.37\%$** | $\pm 0.39\%$ | Separates Urea |
+| **Soil Type** | **$4.89\%$** | $\pm 0.43\%$ | Textural/chemical baseline modifier |
+| **Temperature** | **$0.26\%$** | $\pm 0.08\%$ | Minor climatic influence |
+| **Rainfall** | **$0.02\%$** | $\pm 0.05\%$ | Minor climatic influence |
+| **Crop Type** | **$0.00\%$** | $\pm 0.14\%$ | Synthetic labels assign fertilizer independently of crop |
 
-### Leave-One-Feature-Out (LOFO) Ablation
+### Leave-One-Feature-Out (LOFO) Ablation (Holdout Set)
 
 Retraining separate models omitting one feature at a time reveals individual feature necessity:
 
 | Omitted Feature | Resulting Top-1 | Accuracy Drop | Macro-F1 | Sensitivity Takeaway |
 | :--- | :---: | :---: | :---: | :--- |
-| **Phosphorous** | $81.13\%$ | **$-17.58\%$** | $0.7888$ | Greatest individual necessity |
-| **Carbon** | $86.29\%$ | **$-12.42\%$** | $0.7827$ | Essential for compost vs chemical split |
-| **Potassium** | $89.35\%$ | **$-9.35\%$** | $0.8197$ | Essential for MOP identification |
-| **Moisture** | $92.26\%$ | **$-6.45\%$** | $0.7949$ | Key for water retaining formulation |
-| **PH** | $93.39\%$ | **$-5.32\%$** | $0.8037$ | Essential for Lime trigger |
-| **Nitrogen** | $93.55\%$ | **$-5.16\%$** | $0.8435$ | Essential for Urea trigger |
-| **Soil Type** | $98.06\%$ | $-0.65\%$ | $0.8971$ | Marginal individual impact |
-| **Temperature** | $98.71\%$ | $0.00\%$ | $0.9520$ | Non-essential |
-| **Rainfall** | $98.71\%$ | $0.00\%$ | $0.9522$ | Non-essential |
-| **Crop Type** | $99.19\%$ | $+0.48\%$ | $0.9695$ | Redundant with nutrient rules |
-
-### Finer Input Tiers & Minimal High-Confidence Suite
-
-| Feature Subset | Feature Count | Top-1 Accuracy | Top-3 Accuracy | Macro-F1 |
-| :--- | :---: | :---: | :---: | :---: |
-| **Soil & Crop Only** | 2 | $48.39\%$ | $82.58\%$ | $0.2603$ |
-| **Environmental Only** | 6 | $57.74\%$ | $90.00\%$ | $0.4259$ |
-| **NPK Nutrient Core** | 5 | $75.16\%$ | $96.29\%$ | $0.5448$ |
-| **NPK + pH** | 6 | $81.45\%$ | $99.03\%$ | $0.7067$ |
-| **Minimal Suite (`Soil, Crop, P, K, pH, Carbon`)** | **6** | **$86.77\%$** | **$98.06\%$** | **$0.6782$** |
-| **Full Soil Test Suite** | **10** | **$98.71\%$** | **$100.0\%$** | **$0.9431$** |
-
-*Takeaway*: Soil and Crop alone yields only **$48.39\%$ Top-1** accuracy. The minimal input set achieving high confidence ($\ge 85\%$ Top-1, $\ge 98\%$ Top-3) requires **Soil, Crop, Phosphorus, Potassium, pH, and Carbon** (6 features). Complete laboratory testing achieves **$98.71\%$ Top-1 and $100.0\%$ Top-3**.
+| **Phosphorous** | $81.77\%$ | **$+16.94\%$** | $0.7888$ | Greatest individual necessity |
+| **Carbon** | $87.58\%$ | **$+11.13\%$** | $0.7827$ | Essential for compost vs chemical split |
+| **Potassium** | $90.32\%$ | **$+8.39\%$** | $0.8197$ | Essential for MOP identification |
+| **PH** | $93.39\%$ | **$+5.32\%$** | $0.8037$ | Essential for Lime trigger |
+| **Moisture** | $93.55\%$ | **$+5.16\%$** | $0.7949$ | Key for water retaining formulation |
+| **Nitrogen** | $94.35\%$ | **$+4.35\%$** | $0.8435$ | Essential for Urea trigger |
+| **Soil Type** | $98.55\%$ | $+0.16\%$ | $0.9400$ | Marginal individual impact |
+| **Crop Type** | $99.35\%$ | $-0.65\%$ | $0.9695$ | Redundant with nutrient rules |
+| **Temperature** | $99.52\%$ | $-0.81\%$ | $0.9700$ | Non-essential |
+| **Rainfall** | $99.52\%$ | $-0.81\%$ | $0.9700$ | Non-essential |
 
 ---
 
@@ -160,7 +170,7 @@ To evaluate model resilience to lab test measurement variations or sampling erro
 | **$0\%$ (Clean)** | Certified lab soil test values | **$98.71\%$** | **$0.9431$** | Baseline |
 | **$5\%$** | Standard field test sampling variance | **$90.00\%$** | **$0.8337$** | $-8.82\%$ |
 | **$10\%$** | Moderate field testing error / variance | **$84.84\%$** | **$0.7995$** | $-14.05\%$ |
-| **$20\%$** | High test kit variation or uncalibrated reading | **$72.42\%$** | **$0.6274$** | $-26.63\%$ |
+| **$20\%$** | High test kit variation or reading error | **$72.42\%$** | **$0.6274$** | $-26.63\%$ |
 
 ---
 
@@ -175,4 +185,5 @@ A dedicated continuous integration test (`tests/test_model_quality.py`) guards t
 - Asserts Expected Calibration Error $\le 0.15$ ($0.1209$).
 - Asserts target leakage check: `Remark` strictly excluded from features and test matrix.
 - Asserts masked inputs temper confidence ($\le 0.65$ mean confidence).
+- Asserts that key numbers in `README.md` match `model_files/metrics.json` exactly.
 - Fails the build if an inferior or overconfident model is committed.
