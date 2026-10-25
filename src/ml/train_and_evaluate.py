@@ -527,16 +527,6 @@ def run_pipeline(
     joblib.dump(encoders, output_dir / "encoders.joblib", compress=3)
     joblib.dump(feature_cols, output_dir / "features.joblib", compress=3)
 
-    # Backward compatibility with pickle
-    import pickle
-
-    with open(output_dir / "model.pkl", "wb") as f:
-        pickle.dump(final_model, f)
-    with open(output_dir / "encoders.pkl", "wb") as f:
-        pickle.dump(encoders, f)
-    with open(output_dir / "features.pkl", "wb") as f:
-        pickle.dump(feature_cols, f)
-
     # Descriptions / remarks mapping
     if audit_results.get("remarks_mapping"):
         with open(output_dir / "fertilizer_descriptions.json", "w", encoding="utf-8") as f:

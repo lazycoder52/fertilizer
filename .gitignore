@@ -187,4 +187,5 @@ locust_benchmark*
 # Temporary scratch workspaces
 scratch/
 
-
+# Agent and IDE customizations
+.agents/
