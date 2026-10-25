@@ -1,6 +1,7 @@
 """Unit Tests for Fertilizer Recommendation Schemas, Config, Logging, and Services."""
 
 import logging
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -163,6 +164,82 @@ class TestConfig:
         assert custom_cfg.env == "testing"
         assert custom_cfg.debug is True
         assert custom_cfg.rate_limit_predict == "10 per minute"
+
+    def test_rate_limit_applied_from_config(self):
+        """Verify that changing RATE_LIMIT_PREDICT config applies the updated limit."""
+        from src.fertilizer_app import create_app
+
+        app = create_app(
+            {
+                "TESTING": True,
+                "RATELIMIT_ENABLED": True,
+                "RATE_LIMIT_PREDICT": "1 per minute",
+            }
+        )
+        client = app.test_client()
+        payload = {"Soil": "Loamy Soil", "Crop": "Wheat"}
+
+        res1 = client.post("/api/v1/predict", json=payload)
+        assert res1.status_code == 200
+
+        res2 = client.post("/api/v1/predict", json=payload)
+        assert res2.status_code == 429
+
+    def test_default_rate_limit_applied_from_config(self):
+        """Verify that changing RATE_LIMIT_DEFAULT config applies to non-predict routes."""
+        from src.fertilizer_app import create_app
+
+        app = create_app(
+            {
+                "TESTING": True,
+                "RATELIMIT_ENABLED": True,
+                "RATE_LIMIT_DEFAULT": "1 per minute",
+            }
+        )
+        client = app.test_client()
+
+        res1 = client.get("/api/v1/health")
+        assert res1.status_code == 200
+
+        res2 = client.get("/api/v1/health")
+        assert res2.status_code == 429
+        data = res2.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == 429
+
+    def test_limiter_get_limits_outside_app_context(self):
+        """Verify limiter functions return AppConfig defaults when outside app context."""
+        from src.fertilizer_app.core.limiter import get_default_limit, get_predict_limit
+
+        assert get_default_limit() == config.rate_limit_default
+        assert get_predict_limit() == config.rate_limit_predict
+
+    def test_model_service_anchors_relative_model_dir_different_cwd(self, tmp_path, monkeypatch):
+        """Verify service loads model even when started from an entirely different cwd."""
+        monkeypatch.chdir(tmp_path)
+        assert Path.cwd() == tmp_path
+
+        ModelService._instance = None
+        service = ModelService(model_dir="model_files")
+        assert service.model_dir.is_absolute()
+        assert service.model_dir.exists()
+        res = service.predict({"Soil": "Loamy Soil", "Crop": "Wheat"})
+        assert res["success"] is True
+
+    def test_default_secret_key_warning(self, caplog):
+        """Verify warning is logged when default dev SECRET_KEY is used."""
+        from src.fertilizer_app import create_app
+        from src.fertilizer_app.core.config import DEFAULT_DEV_SECRET_KEY
+
+        with caplog.at_level(logging.WARNING):
+            create_app(
+                {
+                    "TESTING": True,
+                    "SECRET_KEY": DEFAULT_DEV_SECRET_KEY,
+                    "RATELIMIT_ENABLED": False,
+                }
+            )
+        assert any("Default development SECRET_KEY is in use" in r.message for r in caplog.records)
 
 
 class TestLogging:

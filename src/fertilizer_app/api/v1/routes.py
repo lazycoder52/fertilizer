@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
 from src.fertilizer_app.api.v1.schemas import PredictRequest
-from src.fertilizer_app.core.limiter import limiter
+from src.fertilizer_app.core.limiter import get_predict_limit, limiter
 from src.fertilizer_app.services.model_service import ModelService
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
 
 @bp.route("/predict", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit(get_predict_limit)
 def predict_v1():
     """Fertilizer Recommendation Prediction Endpoint.
     ---
@@ -71,14 +71,37 @@ def predict_v1():
     """
     raw_json = request.get_json(silent=True)
     if raw_json is None:
-        return jsonify({"error": "Request body must be valid JSON"}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 400,
+                        "message": "Request body must be valid JSON",
+                    },
+                }
+            ),
+            400,
+        )
 
     # 1. Pydantic validation
     try:
         validated_request = PredictRequest.model_validate(raw_json)
     except ValidationError as err:
         errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in err.errors()]
-        return jsonify({"error": "Validation error", "details": errors}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 400,
+                        "message": "Validation error",
+                    },
+                    "details": errors,
+                }
+            ),
+            400,
+        )
 
     # 2. Model inference via Singleton service
     service = ModelService()
@@ -86,10 +109,33 @@ def predict_v1():
         result = service.predict(validated_request.model_dump())
         return jsonify(result), 200
     except ValueError as val_err:
-        return jsonify({"error": str(val_err)}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 400,
+                        "message": str(val_err),
+                    },
+                }
+            ),
+            400,
+        )
     except Exception as exc:
         logger.exception("Unexpected prediction error: %s", exc)
-        return jsonify({"error": "Internal inference error", "details": str(exc)}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 500,
+                        "message": "Internal inference error",
+                    },
+                    "details": str(exc),
+                }
+            ),
+            500,
+        )
 
 
 @bp.route("/info", methods=["GET"])
@@ -134,7 +180,7 @@ def metrics_v1():
 
 
 @bp.route("/explain", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit(get_predict_limit)
 def explain_v1():
     """Detailed SHAP Feature Attribution Explanation Endpoint.
     ---
@@ -164,13 +210,36 @@ def explain_v1():
     """
     raw_json = request.get_json(silent=True)
     if raw_json is None:
-        return jsonify({"error": "Request body must be valid JSON"}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 400,
+                        "message": "Request body must be valid JSON",
+                    },
+                }
+            ),
+            400,
+        )
 
     try:
         validated_request = PredictRequest.model_validate(raw_json)
     except ValidationError as err:
         errors = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in err.errors()]
-        return jsonify({"error": "Validation error", "details": errors}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 400,
+                        "message": "Validation error",
+                    },
+                    "details": errors,
+                }
+            ),
+            400,
+        )
 
     service = ModelService()
     try:
@@ -184,4 +253,15 @@ def explain_v1():
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": {
+                        "code": 500,
+                        "message": str(exc),
+                    },
+                }
+            ),
+            500,
+        )

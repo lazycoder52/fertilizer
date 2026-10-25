@@ -146,7 +146,9 @@ def test_api_v1_predict_pydantic_bounds_ph(client):
     response = client.post("/api/v1/predict", json=payload)
     assert response.status_code == 400
     data = response.get_json()
-    assert "Validation error" in data["error"]
+    assert data["success"] is False
+    assert data["error"]["code"] == 400
+    assert "Validation error" in data["error"]["message"]
     assert any("PH" in str(d["loc"]) for d in data["details"])
 
 
@@ -157,7 +159,9 @@ def test_api_v1_predict_pydantic_bounds_moisture(client):
     response_bad = client.post("/api/v1/predict", json=payload_bad)
     assert response_bad.status_code == 400
     data_bad = response_bad.get_json()
-    assert "Validation error" in data_bad["error"]
+    assert data_bad["success"] is False
+    assert data_bad["error"]["code"] == 400
+    assert "Validation error" in data_bad["error"]["message"]
 
     # Valid percentage (60.0%) accepted and converted to 0.60
     payload_good = {"Soil": "Loamy Soil", "Crop": "Wheat", "Moisture": 60.0}
@@ -173,7 +177,9 @@ def test_api_v1_predict_missing_required(client):
     response = client.post("/api/v1/predict", json=payload)
     assert response.status_code == 400
     data = response.get_json()
-    assert "Validation error" in data["error"]
+    assert data["success"] is False
+    assert data["error"]["code"] == 400
+    assert "Validation error" in data["error"]["message"]
 
 
 def test_api_v1_predict_invalid_category(client):
@@ -181,7 +187,106 @@ def test_api_v1_predict_invalid_category(client):
     payload = {"Soil": "Moon Soil", "Crop": "Wheat"}
     response = client.post("/api/v1/predict", json=payload)
     assert response.status_code == 400
-    assert "Invalid soil type" in response.get_json()["error"]
+    data = response.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 400
+    assert "Invalid soil type" in data["error"]["message"]
+
+
+def test_api_error_400_json_shape(client):
+    """Verify malformed JSON requests to /api/ return consistent 400 error shape."""
+    res = client.post("/api/v1/predict", data="{malformed json", content_type="application/json")
+    assert res.status_code == 400
+    assert res.is_json
+    data = res.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 400
+    assert (
+        "Failed to decode JSON object" in data["error"]["message"]
+        or "valid JSON" in data["error"]["message"]
+    )
+
+
+def test_api_error_404_json_shape(client):
+    """Verify non-existent /api/ paths return consistent 404 JSON error shape."""
+    res = client.get("/api/v1/nonexistent-endpoint")
+    assert res.status_code == 404
+    assert res.is_json
+    data = res.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 404
+    assert "The requested URL was not found" in data["error"]["message"]
+
+
+def test_api_error_405_json_shape(client):
+    """Verify method mismatch on /api/ endpoints returns consistent 405 JSON error shape."""
+    res = client.get("/api/v1/predict")
+    assert res.status_code == 405
+    assert res.is_json
+    data = res.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 405
+    assert "The method is not allowed" in data["error"]["message"]
+
+
+def test_api_error_429_json_shape():
+    """Verify rate limit exceed on /api/ returns consistent 429 JSON error shape."""
+    from src.fertilizer_app import create_app
+
+    app = create_app(
+        {
+            "TESTING": True,
+            "RATELIMIT_ENABLED": True,
+            "RATE_LIMIT_PREDICT": "1 per minute",
+        }
+    )
+    client = app.test_client()
+    payload = {"Soil": "Loamy Soil", "Crop": "Wheat"}
+    client.post("/api/v1/predict", json=payload)
+    res = client.post("/api/v1/predict", json=payload)
+    assert res.status_code == 429
+    assert res.is_json
+    data = res.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 429
+    assert (
+        "1 minute" in data["error"]["message"]
+        or "Too Many Requests" in data["error"]["message"]
+        or "rate limit" in data["error"]["message"].lower()
+    )
+
+
+def test_api_error_500_json_shape(client, monkeypatch):
+    """Verify unhandled exception on /api/ returns consistent 500 JSON error shape."""
+    from src.fertilizer_app.services.model_service import ModelService
+
+    def mock_predict(*args, **kwargs):
+        raise RuntimeError("Simulated internal error")
+
+    monkeypatch.setattr(ModelService, "predict", mock_predict)
+    payload = {"Soil": "Loamy Soil", "Crop": "Wheat"}
+    res = client.post("/api/v1/predict", json=payload)
+    assert res.status_code == 500
+    assert res.is_json
+    data = res.get_json()
+    assert data["success"] is False
+    assert data["error"]["code"] == 500
+    assert "Internal inference error" in data["error"]["message"]
+
+
+def test_html_pages_keep_normal_behavior(client):
+    """Verify non-API HTML routes preserve normal HTML error response behavior."""
+    # 404 on web root
+    res404 = client.get("/nonexistent-page")
+    assert res404.status_code == 404
+    assert not res404.is_json
+    assert b"<html" in res404.data.lower() or b"<!doctype html>" in res404.data.lower()
+
+    # 405 on web root
+    res405 = client.post("/")
+    assert res405.status_code == 405
+    assert not res405.is_json
+    assert b"<html" in res405.data.lower() or b"<!doctype html>" in res405.data.lower()
 
 
 def test_legacy_endpoints(client):

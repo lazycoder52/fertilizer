@@ -26,8 +26,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         static_folder=str(static_dir),
     )
 
+    from src.fertilizer_app.core.config import DEFAULT_DEV_SECRET_KEY
+
     # Core Configurations
     app.config["SECRET_KEY"] = config.secret_key
+    app.config["RATE_LIMIT_DEFAULT"] = config.rate_limit_default
+    app.config["RATE_LIMIT_PREDICT"] = config.rate_limit_predict
     app.config["RATELIMIT_ENABLED"] = (
         config.ratelimit_enabled
         if hasattr(config, "ratelimit_enabled")
@@ -46,6 +50,14 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     # Initialize Logging & Middleware
     init_logging(app)
+
+    # Warn if insecure default secret key is in use
+    if app.config.get("SECRET_KEY") == DEFAULT_DEV_SECRET_KEY:
+        app.logger.warning(
+            "Security Warning: Default development SECRET_KEY is in use! "
+            "Set SECRET_KEY in environment for production deployments."
+        )
+
     limiter.init_app(app)
 
     # Initialize Swagger UI
@@ -55,6 +67,50 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     # Register Blueprints
     app.register_blueprint(web_bp)
     app.register_blueprint(api_v1_bp)
+
+    # Register Error Handlers
+    from flask import jsonify, request
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e: HTTPException):
+        """Return structured JSON error shape for API routes, preserve HTML for web routes."""
+        if request.path.startswith("/api/"):
+            code = e.code or 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": code,
+                            "message": e.description or str(e),
+                        },
+                    }
+                ),
+                code,
+            )
+        return e
+
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(e: Exception):
+        """Catch unhandled exceptions and format as JSON 500 on /api/ routes."""
+        if isinstance(e, HTTPException):
+            return handle_http_exception(e)
+        if request.path.startswith("/api/"):
+            app.logger.exception("Unhandled Exception on %s: %s", request.path, e)
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": 500,
+                            "message": "Internal Server Error",
+                        },
+                    }
+                ),
+                500,
+            )
+        raise e
 
     # Pre-warm Model Service (load once on startup)
     with app.app_context():
