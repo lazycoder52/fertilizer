@@ -9,6 +9,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from src.fertilizer_app.core.config import config
 from src.fertilizer_app.services.shap_service import ShapService
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,12 @@ class ModelService:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, model_dir: Path | None = None):
+    def __init__(self, model_dir: Path | str | None = None):
         if getattr(self, "_initialized", False):
             return
 
-        self.model_dir = Path(model_dir or "model_files")
+        raw_dir = Path(model_dir or config.model_dir)
+        self.model_dir = raw_dir if raw_dir.is_absolute() else (config.base_dir / raw_dir).resolve()
         self.model: Any = None
         self.encoders: dict[str, Any] = {}
         self.required_features: list[str] = []
@@ -53,21 +55,18 @@ class ModelService:
         logger.info("Loading model artifacts from %s...", self.model_dir)
 
         # 1. Model
-        if (self.model_dir / "model.joblib").exists():
+        if (
+            (self.model_dir / "model.joblib").exists()
+            and (self.model_dir / "encoders.joblib").exists()
+            and (self.model_dir / "features.joblib").exists()
+        ):
             self.model = joblib.load(self.model_dir / "model.joblib")
             self.encoders = joblib.load(self.model_dir / "encoders.joblib")
             self.required_features = joblib.load(self.model_dir / "features.joblib")
-        elif (self.model_dir / "model.pkl").exists():
-            import pickle
-
-            with open(self.model_dir / "model.pkl", "rb") as f:
-                self.model = pickle.load(f)
-            with open(self.model_dir / "encoders.pkl", "rb") as f:
-                self.encoders = pickle.load(f)
-            with open(self.model_dir / "features.pkl", "rb") as f:
-                self.required_features = pickle.load(f)
         else:
-            raise FileNotFoundError(f"Model artifacts not found in {self.model_dir}")
+            raise FileNotFoundError(
+                f"Required .joblib model artifacts not found in {self.model_dir}"
+            )
 
         self.le_soil = self.encoders["le_soil"]
         self.le_crop = self.encoders["le_crop"]
