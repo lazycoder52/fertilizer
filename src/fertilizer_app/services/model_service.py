@@ -55,21 +55,18 @@ class ModelService:
         logger.info("Loading model artifacts from %s...", self.model_dir)
 
         # 1. Model
-        if (self.model_dir / "model.joblib").exists():
+        if (
+            (self.model_dir / "model.joblib").exists()
+            and (self.model_dir / "encoders.joblib").exists()
+            and (self.model_dir / "features.joblib").exists()
+        ):
             self.model = joblib.load(self.model_dir / "model.joblib")
             self.encoders = joblib.load(self.model_dir / "encoders.joblib")
             self.required_features = joblib.load(self.model_dir / "features.joblib")
-        elif (self.model_dir / "model.pkl").exists():
-            import pickle
-
-            with open(self.model_dir / "model.pkl", "rb") as f:
-                self.model = pickle.load(f)
-            with open(self.model_dir / "encoders.pkl", "rb") as f:
-                self.encoders = pickle.load(f)
-            with open(self.model_dir / "features.pkl", "rb") as f:
-                self.required_features = pickle.load(f)
         else:
-            raise FileNotFoundError(f"Model artifacts not found in {self.model_dir}")
+            raise FileNotFoundError(
+                f"Required .joblib model artifacts not found in {self.model_dir}"
+            )
 
         self.le_soil = self.encoders["le_soil"]
         self.le_crop = self.encoders["le_crop"]
