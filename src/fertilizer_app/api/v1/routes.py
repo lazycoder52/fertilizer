@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
 from src.fertilizer_app.api.v1.schemas import PredictRequest
-from src.fertilizer_app.core.limiter import limiter
+from src.fertilizer_app.core.limiter import get_predict_limit, limiter
 from src.fertilizer_app.services.model_service import ModelService
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
 
 @bp.route("/predict", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit(get_predict_limit)
 def predict_v1():
     """Fertilizer Recommendation Prediction Endpoint.
     ---
@@ -134,7 +134,7 @@ def metrics_v1():
 
 
 @bp.route("/explain", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit(get_predict_limit)
 def explain_v1():
     """Detailed SHAP Feature Attribution Explanation Endpoint.
     ---

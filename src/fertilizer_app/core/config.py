@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+DEFAULT_DEV_SECRET_KEY = "fertilizer-default-secret-key"
+
 
 class AppConfig(BaseModel):
     """Application settings with environment variable overrides."""
@@ -13,13 +15,19 @@ class AppConfig(BaseModel):
     debug: bool = Field(
         default_factory=lambda: os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true")
     )
-    secret_key: str = Field(
-        default_factory=lambda: os.getenv("SECRET_KEY", "fertilizer-default-secret-key")
-    )
+    secret_key: str = Field(default_factory=lambda: os.getenv("SECRET_KEY", DEFAULT_DEV_SECRET_KEY))
 
     # Paths
     base_dir: Path = Path(__file__).resolve().parents[3]
-    model_dir: Path = Field(default_factory=lambda: Path(os.getenv("MODEL_DIR", "model_files")))
+    model_dir: Path = Field(
+        default_factory=lambda: (
+            Path(os.getenv("MODEL_DIR", "model_files"))
+            if Path(os.getenv("MODEL_DIR", "model_files")).is_absolute()
+            else (
+                Path(__file__).resolve().parents[3] / os.getenv("MODEL_DIR", "model_files")
+            ).resolve()
+        )
+    )
 
     # Rate Limiting
     ratelimit_enabled: bool = Field(

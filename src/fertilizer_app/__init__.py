@@ -26,8 +26,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         static_folder=str(static_dir),
     )
 
+    from src.fertilizer_app.core.config import DEFAULT_DEV_SECRET_KEY
+
     # Core Configurations
     app.config["SECRET_KEY"] = config.secret_key
+    app.config["RATE_LIMIT_DEFAULT"] = config.rate_limit_default
+    app.config["RATE_LIMIT_PREDICT"] = config.rate_limit_predict
     app.config["RATELIMIT_ENABLED"] = (
         config.ratelimit_enabled
         if hasattr(config, "ratelimit_enabled")
@@ -46,6 +50,14 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     # Initialize Logging & Middleware
     init_logging(app)
+
+    # Warn if insecure default secret key is in use
+    if app.config.get("SECRET_KEY") == DEFAULT_DEV_SECRET_KEY:
+        app.logger.warning(
+            "Security Warning: Default development SECRET_KEY is in use! "
+            "Set SECRET_KEY in environment for production deployments."
+        )
+
     limiter.init_app(app)
 
     # Initialize Swagger UI
