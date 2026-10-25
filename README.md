@@ -68,13 +68,14 @@ Deployment configs are included; the service is not currently hosted. Interactiv
   - When continuous inputs are omitted, standard unmasked models (Decision Trees, LightGBM, Random Forest) collapse to $21.77\%$ Top-1 accuracy while exhibiting severe over-confidence ($96.73\% - 100.00\%$ confidence, $\text{ECE} > 0.74$).
   - Training with 35% random feature masking forces the model to learn marginal distributions and temper its confidence when inputs are missing, achieving **<!-- BEGIN:masked_rf_sc_mean_conf -->$44.90\%$<!-- END:masked_rf_sc_mean_conf -->** mean confidence and an ECE of **<!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->** on Soil+Crop-only queries.
 - **Why Random Forest was Kept over Masked LightGBM**:
-  - On Soil+Crop-only inputs, Masked LightGBM achieves **<!-- BEGIN:masked_lgbm_sc_top1 -->$49.84\%$<!-- END:masked_lgbm_sc_top1 -->** Top-1 / **<!-- BEGIN:masked_lgbm_sc_top3 -->$84.19\%$<!-- END:masked_lgbm_sc_top3 -->** Top-3 (ECE **<!-- BEGIN:masked_lgbm_sc_ece -->$0.0352$<!-- END:masked_lgbm_sc_ece -->**), slightly outperforming Masked Random Forest at **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 -->** Top-1 / **<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 -->** Top-3 (ECE **<!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->**).
-  - However, Random Forest achieves **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->** Top-1 and **<!-- BEGIN:holdout_top3 -->$100.00\%$<!-- END:holdout_top3 -->** Top-3 on clean inputs and provides standard scikit-learn portability across host environments without native OpenMP shared library dependencies.
-  - The Random Forest artifact is maintained as the production baseline pending architectural migration review.
+  - Across model evaluations, the performance trade-off between `Random_Forest_Tuned_Masked` and `LightGBM_Masked` is marginal across both complete and missing input regimes:
+    - **Clean Holdout ($N=620$)**: Random Forest achieves **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->** Top-1 and **<!-- BEGIN:holdout_top3 -->$100.00\%$<!-- END:holdout_top3 -->** Top-3, compared to LightGBM's **<!-- BEGIN:masked_lgbm_clean_top1 -->$97.74\%$<!-- END:masked_lgbm_clean_top1 -->** Top-1 and **<!-- BEGIN:masked_lgbm_clean_top3 -->$99.35\%$<!-- END:masked_lgbm_clean_top3 -->** Top-3.
+    - **Soil+Crop-Only Holdout ($N=620$)**: LightGBM achieves **<!-- BEGIN:masked_lgbm_sc_top1 -->$49.84\%$<!-- END:masked_lgbm_sc_top1 -->** Top-1 and **<!-- BEGIN:masked_lgbm_sc_top3 -->$84.19\%$<!-- END:masked_lgbm_sc_top3 -->** Top-3, compared to Random Forest's **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 -->** Top-1 and **<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 -->** Top-3.
+  - With 620 holdout samples, a gap of about 3 points is within noise.
+  - The Random Forest artifact is maintained as the baseline pending broader architectural migration review.
 - **Future Work**:
   - Validating and fine-tuning on real-world empirical soil testing datasets and multi-region agronomic field trials.
   - Expanding the prediction contract to estimate quantitative volumetric dosage ($\text{kg/ha}$) and growth-stage scheduling.
-  - Standardizing OpenMP runtime dependencies across target deployment environments to enable a clean LightGBM upgrade.
 
 ---
 
