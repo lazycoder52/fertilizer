@@ -11,11 +11,70 @@ Deployment configs are included; the service is not currently hosted. Interactiv
 
 ---
 
+## 60-Second Summary
+
+- **What the Project Does**:
+  - **Inputs**: Categorical soil type and crop category, plus 8 continuous environmental & soil test parameters: Nitrogen ($N$), Phosphorous ($P$), Potassium ($K$), pH, Soil Moisture, Temperature, Rainfall, and Carbon.
+  - **Outputs**: Top-1 fertilizer recommendation, Top-3 ranked formulations with predicted class probabilities, agronomic guidance remarks, and real-time local TreeSHAP feature attribution explanations (identifying positive drivers and negative inhibitors).
+- **The Approach (in 3 lines)**:
+  1. **Tuned Ensemble ML**: A Bayesian-optimized Random Forest classifier trained with 35% random feature masking so the model learns uncertainty when soil test parameters are missing.
+  2. **TreeSHAP Explainability**: Pre-computed TreeSHAP background distributions delivering instant local feature attribution to justify each agronomic recommendation.
+  3. **Robust REST API & UI**: A clean Flask application with Pydantic v2 validation contracts, dynamic rate limiting, structured JSON logging, and interactive OpenAPI documentation.
+- **Key Results** (rendered directly from `model_files/metrics.json` via `render_docs`):
+  - **Clean Holdout ($N=620$)**:
+    - **Top-1 Accuracy**: **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->**
+    - **Top-3 Accuracy**: **<!-- BEGIN:holdout_top3 -->$100.00\%$<!-- END:holdout_top3 -->**
+    - **Macro-F1**: **<!-- BEGIN:holdout_macro_f1 -->$0.9431$<!-- END:holdout_macro_f1 -->**
+  - **Soil+Crop-Only Holdout ($N=620$, omitted continuous inputs)**:
+    - **Top-1 Accuracy**: **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 -->**
+    - **Top-3 Accuracy**: **<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 -->**
+  - **Masked vs. Unmasked Benchmark Comparison**:
+<!-- BEGIN:comparison_table -->
+| Model Candidate | 5-Fold CV Top-1 | 5-Fold CV Macro-F1 | Clean Holdout Top-1 | Clean Holdout ECE | Soil+Crop Top-1 | Soil+Crop Top-3 | Soil+Crop ECE | Soil+Crop Mean Conf |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Zero-Rule Majority Baseline** | $33.99\% \pm 0.10\%$ | $0.0507$ | $34.03\%$ | $0.6597$ | $34.03\%$ | $60.81\%$ | $0.6597$ | $100.00\%$ |
+| **Logistic Regression (Standardized)** | $80.36\% \pm 0.91\%$ | $0.6815$ | $79.84\%$ | $0.0759$ | $19.35\%$ | $66.29\%$ | $0.1880$ | $38.15\%$ |
+| **Decision Tree (Clean)** | $99.28\% \pm 0.52\%$ | $0.9771$ | $99.19\%$ | $0.0081$ | $21.77\%$ | $29.84\%$ | $0.7823$ | $100.00\%$ |
+| **Decision Tree (Mask-Augmented 35%)** | $94.27\% \pm 1.06\%$ | $0.8910$ | $96.77\%$ | $0.0323$ | $48.87\%$ | $82.26\%$ | $0.0623$ | $55.09\%$ |
+| **LightGBM (Clean)** | $98.71\% \pm 0.35\%$ | $0.9725$ | $98.71\%$ | $0.0109$ | $21.77\%$ | $66.77\%$ | $0.7823$ | $100.00\%$ |
+| **LightGBM (Mask-Augmented 35%)** | $97.79\% \pm 0.58\%$ | $0.9060$ | $97.74\%$ | $0.0082$ | $49.84\%$ | $84.19\%$ | $0.0352$ | $52.96\%$ |
+| **Random Forest (Default Clean)** | $99.11\% \pm 0.33\%$ | $0.9683$ | $99.52\%$ | $0.0721$ | $21.77\%$ | $37.74\%$ | $0.7496$ | $96.73\%$ |
+| **Random Forest (Tuned Clean, 75 trees)** | $99.23\% \pm 0.20\%$ | $0.9720$ | $99.35\%$ | $0.0733$ | $21.77\%$ | $55.32\%$ | $0.7537$ | $97.15\%$ |
+| **Random Forest (Tuned + 35% Masking, Production)** | $98.63\% \pm 0.59\%$ | $0.9475$ | **$98.71\%$** | **$0.1209$** | **$46.29\%$** | **$79.84\%$** | **$0.0593$** | **$44.90\%$** |
+<!-- END:comparison_table -->
+
+- **How to Run Locally in 3 Commands**:
+  ```bash
+  pip install -r requirements.txt
+  python app.py
+  # Open http://localhost:5000 in your browser (OpenAPI documentation at http://localhost:5000/apidocs/)
+  ```
+
+---
+
 ## Limitations & Project Scope
 
-1. **Synthetic Benchmark Dataset**: The model was trained and evaluated on a synthetic benchmark dataset (`fertilizer_recommendation_dataset.csv`). As documented in the [Data Audit](docs/DATA_CARD.md), the dataset contains synthetic generation artifacts (negative values in rainfall and phosphorus, 1-to-1 correspondence between the `Remark` column and labels, and axis-aligned rectangular decision boundaries). High model accuracy reflects the algorithm learning these deterministic partitions rather than natural biological variance.
-2. **Formulation Only (No Dosage or Schedule)**: The model predicts **which** fertilizer formulation suits the crop and soil nutrient balance (e.g., DAP for phosphorus deficiency, Muriate of Potash for potassium deficit, or Urea for leafy growth). It does **NOT** calculate quantitative volumetric dosage ($\text{kg/ha}$ or $\text{lbs/acre}$) or seasonal application schedules across crop growth stages.
-3. **No Field Trial Validation**: Predictions are advisory decision-support tools and have not been validated in biological field trials. They should not substitute for wet-chemistry laboratory soil testing and regional extension guidelines.
+1. **Synthetic Benchmark Dataset**: The model was trained and evaluated on a synthetic benchmark dataset (`fertilizer_recommendation_dataset.csv`). As documented in the [Data Audit](docs/DATA_CARD.md), the dataset contains synthetic generation artifacts (negative values in rainfall and phosphorus, 1-to-1 correspondence between the `Remark` column and labels, and axis-aligned rectangular decision boundaries). High model accuracy reflects the algorithm learning these deterministic generating rules rather than natural biological agronomy.
+2. **Holdout Sample Size & Statistical Significance**: The holdout evaluation set is 620 samples ($N=620$). At this sample size, accuracy differences of roughly 1 percentage point ($\approx 6$ samples) are within statistical noise and should not be over-interpreted as model superiority.
+3. **No Validation on Real Farm Data**: Predictions are advisory decision-support tools and have not been validated on real farm data or in biological field trials. They should not substitute for certified wet-chemistry laboratory soil testing and localized agricultural extension recommendations.
+4. **Formulation Only (No Dosage or Schedule)**: The model predicts **which** fertilizer formulation suits the crop and soil nutrient balance (e.g., DAP for phosphorus deficiency, Muriate of Potash for potassium deficit, or Urea for leafy vegetative growth). It does **NOT** calculate quantitative volumetric dosage ($\text{kg/ha}$ or $\text{lbs/acre}$) or seasonal application schedules across crop phenological stages.
+
+---
+
+## Design Decisions
+
+- **Why Masked Training**:
+  - In real farming scenarios, continuous soil testing inputs (NPK, pH, Carbon, Moisture) are frequently unavailable or partially tested.
+  - When continuous inputs are omitted, standard unmasked models (Decision Trees, LightGBM, Random Forest) collapse to $21.77\%$ Top-1 accuracy while exhibiting severe over-confidence ($96.73\% - 100.00\%$ confidence, $\text{ECE} > 0.74$).
+  - Training with 35% random feature masking forces the model to learn marginal distributions and temper its confidence when inputs are missing, achieving **<!-- BEGIN:masked_rf_sc_mean_conf -->$44.90\%$<!-- END:masked_rf_sc_mean_conf -->** mean confidence and an ECE of **<!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->** on Soil+Crop-only queries.
+- **Why Random Forest was Kept over Masked LightGBM**:
+  - On Soil+Crop-only inputs, Masked LightGBM achieves **<!-- BEGIN:masked_lgbm_sc_top1 -->$49.84\%$<!-- END:masked_lgbm_sc_top1 -->** Top-1 / **<!-- BEGIN:masked_lgbm_sc_top3 -->$84.19\%$<!-- END:masked_lgbm_sc_top3 -->** Top-3 (ECE **<!-- BEGIN:masked_lgbm_sc_ece -->$0.0352$<!-- END:masked_lgbm_sc_ece -->**), slightly outperforming Masked Random Forest at **<!-- BEGIN:masked_rf_sc_top1 -->$46.29\%$<!-- END:masked_rf_sc_top1 -->** Top-1 / **<!-- BEGIN:masked_rf_sc_top3 -->$79.84\%$<!-- END:masked_rf_sc_top3 -->** Top-3 (ECE **<!-- BEGIN:masked_rf_sc_ece -->$0.0593$<!-- END:masked_rf_sc_ece -->**).
+  - However, Random Forest achieves **<!-- BEGIN:holdout_top1 -->$98.71\%$<!-- END:holdout_top1 -->** Top-1 and **<!-- BEGIN:holdout_top3 -->$100.00\%$<!-- END:holdout_top3 -->** Top-3 on clean inputs and provides standard scikit-learn portability across host environments without native OpenMP shared library dependencies.
+  - The Random Forest artifact is maintained as the production baseline pending architectural migration review.
+- **Future Work**:
+  - Validating and fine-tuning on real-world empirical soil testing datasets and multi-region agronomic field trials.
+  - Expanding the prediction contract to estimate quantitative volumetric dosage ($\text{kg/ha}$) and growth-stage scheduling.
+  - Standardizing OpenMP runtime dependencies across target deployment environments to enable a clean LightGBM upgrade.
 
 ---
 
@@ -241,7 +300,7 @@ docker build -t fertilizer-recommendation .
 # Run container with integrated healthcheck
 docker run -p 5000:5000 fertilizer-recommendation
 ```
-The application will be live at `http://localhost:5000` with OpenAPI documentation at `http://localhost:5000/apidocs/`.
+The application will be accessible at `http://localhost:5000` with OpenAPI documentation at `http://localhost:5000/apidocs/`.
 
 ### Option B: Local Python Environment
 
