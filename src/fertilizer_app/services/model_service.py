@@ -9,6 +9,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from src.fertilizer_app.core.config import config
 from src.fertilizer_app.services.shap_service import ShapService
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,12 @@ class ModelService:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, model_dir: Path | None = None):
+    def __init__(self, model_dir: Path | str | None = None):
         if getattr(self, "_initialized", False):
             return
 
-        self.model_dir = Path(model_dir or "model_files")
+        raw_dir = Path(model_dir or config.model_dir)
+        self.model_dir = raw_dir if raw_dir.is_absolute() else (config.base_dir / raw_dir).resolve()
         self.model: Any = None
         self.encoders: dict[str, Any] = {}
         self.required_features: list[str] = []
