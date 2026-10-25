@@ -185,6 +185,35 @@ class TestConfig:
         res2 = client.post("/api/v1/predict", json=payload)
         assert res2.status_code == 429
 
+    def test_default_rate_limit_applied_from_config(self):
+        """Verify that changing RATE_LIMIT_DEFAULT config applies to non-predict routes."""
+        from src.fertilizer_app import create_app
+
+        app = create_app(
+            {
+                "TESTING": True,
+                "RATELIMIT_ENABLED": True,
+                "RATE_LIMIT_DEFAULT": "1 per minute",
+            }
+        )
+        client = app.test_client()
+
+        res1 = client.get("/api/v1/health")
+        assert res1.status_code == 200
+
+        res2 = client.get("/api/v1/health")
+        assert res2.status_code == 429
+        data = res2.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == 429
+
+    def test_limiter_get_limits_outside_app_context(self):
+        """Verify limiter functions return AppConfig defaults when outside app context."""
+        from src.fertilizer_app.core.limiter import get_default_limit, get_predict_limit
+
+        assert get_default_limit() == config.rate_limit_default
+        assert get_predict_limit() == config.rate_limit_predict
+
     def test_model_service_anchors_relative_model_dir_different_cwd(self, tmp_path, monkeypatch):
         """Verify service loads model even when started from an entirely different cwd."""
         monkeypatch.chdir(tmp_path)

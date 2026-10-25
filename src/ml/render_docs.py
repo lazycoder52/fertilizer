@@ -468,6 +468,10 @@ def get_marker_generators(metrics: dict[str, Any]) -> dict[str, str]:
     lgbm_sc = missing_comp.get("LightGBM_Masked", {})
     rf_sc = missing_comp.get("Random_Forest_Tuned_Masked", {})
 
+    clean_comp = metrics.get("clean_holdout_comparison", {})
+    lgbm_clean = clean_comp.get("LightGBM_Masked", {})
+    rf_clean = clean_comp.get("Random_Forest_Tuned_Masked", {})
+
     s6 = ablation_tbl.get("soil_crop_pk_ph_carbon", {})
     s6_ma = s6.get("method_a_deployed_imputed", {})
     s6_mb = s6.get("method_b_retrained_subset", {})
@@ -498,6 +502,10 @@ def get_marker_generators(metrics: dict[str, Any]) -> dict[str, str]:
         "holdout_brier": f"${holdout.get('brier_score', 0.0):.4f}$",
         "holdout_ece": f"${holdout.get('expected_calibration_error', holdout.get('ece', 0.0)):.4f}$",
         "holdout_mean_confidence": f"${holdout.get('mean_confidence', 0.0) * 100:.2f}\\%$",
+        "masked_lgbm_clean_top1": f"${lgbm_clean.get('top1_accuracy', 0.0) * 100:.2f}\\%$",
+        "masked_lgbm_clean_top3": f"${lgbm_clean.get('top3_accuracy', 0.0) * 100:.2f}\\%$",
+        "masked_rf_clean_top1": f"${rf_clean.get('top1_accuracy', holdout.get('top1_accuracy', 0.0)) * 100:.2f}\\%$",
+        "masked_rf_clean_top3": f"${rf_clean.get('top3_accuracy', holdout.get('top3_accuracy', 0.0)) * 100:.2f}\\%$",
         "masked_lgbm_sc_top1": f"${lgbm_sc.get('top1_accuracy', 0.0) * 100:.2f}\\%$",
         "masked_lgbm_sc_top3": f"${lgbm_sc.get('top3_accuracy', 0.0) * 100:.2f}\\%$",
         "masked_lgbm_sc_ece": f"${lgbm_sc.get('expected_calibration_error', lgbm_sc.get('ece', 0.0)):.4f}$",
