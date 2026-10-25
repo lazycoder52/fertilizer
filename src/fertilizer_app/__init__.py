@@ -68,6 +68,50 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(web_bp)
     app.register_blueprint(api_v1_bp)
 
+    # Register Error Handlers
+    from flask import jsonify, request
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e: HTTPException):
+        """Return structured JSON error shape for API routes, preserve HTML for web routes."""
+        if request.path.startswith("/api/"):
+            code = e.code or 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": code,
+                            "message": e.description or str(e),
+                        },
+                    }
+                ),
+                code,
+            )
+        return e
+
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(e: Exception):
+        """Catch unhandled exceptions and format as JSON 500 on /api/ routes."""
+        if isinstance(e, HTTPException):
+            return handle_http_exception(e)
+        if request.path.startswith("/api/"):
+            app.logger.exception("Unhandled Exception on %s: %s", request.path, e)
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": 500,
+                            "message": "Internal Server Error",
+                        },
+                    }
+                ),
+                500,
+            )
+        raise e
+
     # Pre-warm Model Service (load once on startup)
     with app.app_context():
         ModelService(model_dir=config.model_dir)
