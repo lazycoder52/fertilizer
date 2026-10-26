@@ -7,7 +7,7 @@
 
 A machine learning service and REST API for agronomic fertilizer recommendation, featuring TreeSHAP explainability, Pydantic v2 input contracts, lean multi-stage Docker containerization, and automated CI quality gates.
 
-Deployment configs are included; the service is not currently hosted. Interactive OpenAPI / Swagger documentation is available at `http://localhost:5000/apidocs/` when run locally.
+The service is designed to run locally or containerized via Docker. Interactive OpenAPI / Swagger documentation is available at `http://localhost:5000/apidocs/` when run locally.
 
 ---
 
@@ -462,12 +462,10 @@ fertilizer-app/
 │   ├── test_api_v1.py             # API route tests, validation bounds, moisture auto-conversion
 │   ├── test_model_quality.py      # CI Quality Gate: tests model.joblib against test_data.joblib & README figures
 │   └── test_unit.py               # Unit tests for schemas, services, config, logging, and feature masking
-├── app.py                         # Application entrypoint (Procfile / Render target)
+├── app.py                         # Application entrypoint
 ├── Dockerfile                     # Multi-stage lean non-root Docker build
 ├── LICENSE                        # MIT License
 ├── locustfile.py                  # Concurrent user load testing scenario
-├── Procfile                       # Render deployment declaration (web: gunicorn app:app)
-├── render.yaml                    # Render infrastructure configuration
 ├── requirements.txt               # Lean production runtime dependencies
 └── requirements-dev.txt           # Offline dev, training, CI, and testing tools
 ```
