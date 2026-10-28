@@ -353,7 +353,7 @@ Interactive OpenAPI / Swagger documentation is available locally at `http://loca
 }
 ```
 
-### Example Response (`200 OK` — generated directly from model inference on sample request)
+### Example Response (`200 OK` - generated directly from model inference on sample request)
 
 ```json
 {
@@ -469,6 +469,15 @@ fertilizer-app/
 ├── requirements.txt               # Lean production runtime dependencies
 └── requirements-dev.txt           # Offline dev, training, CI, and testing tools
 ```
+
+---
+
+## Tools Used
+
+- **Runtime & Web Framework**: Python 3.11+, Flask 3.1, Gunicorn (production WSGI), Pydantic v2 (data contracts & validation)
+- **Machine Learning & Attribution**: Scikit-learn (Random Forest classifier), SHAP (TreeSHAP explainer), Optuna (Bayesian hyperparameter optimization), LightGBM
+- **Testing & Quality Assurance**: Pytest, Pytest-cov (>=80% coverage threshold), Ruff (linting & formatting), pip-audit (dependency vulnerability scanning), Locust (load testing)
+- **Containerization & CI**: Docker (multi-stage non-root build), Docker Compose, GitHub Actions CI
 
 ---
 
